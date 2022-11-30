@@ -13,12 +13,14 @@ interface FirmChain {
         uint8   v;
     }
 
+    // TODO: There should probably be a standard way to calculate childBlocksId 
+    //       Simply a hash of a list or a merkle tree? If you will eve
     /// AKA "confirmation"
     struct Block {
         address         code;
         BlockId         parentBlock;
         BlockId         selfBlock;
-        BlockId         childBlock;
+        CId             childBlocksId;
         CId             opDataId;
         CId             stateId;
         uint            timestamp;
@@ -29,6 +31,9 @@ interface FirmChain {
 
     function updateHead(BlockId blockId) external returns (BlockId);
 
-    function getHead() external view returns (BlockId);
+    function addBlockAndUpdate(Block calldata bl) external returns (BlockId);
+
+    /// Returns last irreversible block
+    function getLIB() external view returns (BlockId);
 
 }

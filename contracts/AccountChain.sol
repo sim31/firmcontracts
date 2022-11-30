@@ -3,15 +3,23 @@ pragma solidity >=0.5.0 <0.9.0;
 
 import "./FirmChainAbi.sol";
 
-contract DeviceChain is FirmChain {
+contract AccountChain is FirmChain {
     // TODO: Add object store to a separate library
 
+    struct Device {
+        string name;
+        FirmChain addr;
+        uint8 weight;
+    }
+
     struct State {
-        address owner;
+        CId[] devices;
+        uint8 threshold;
     }
     event ByzantineFault(BlockId conflictB1, BlockId conflictB2);
 
     mapping(CId => State) public states;
+    mapping(CId => Device) public devices;
     /// Key is BlockId (hash of a block)
     mapping(BlockId => Block) public blocks;
     /// Key: confirmed block id, Value: id of a block which confirmed it
@@ -27,7 +35,7 @@ contract DeviceChain is FirmChain {
         // Get current state
         Block storage headBl = blocks[_head];
         State storage currentState = states[headBl.stateId];
-        require(currentState.owner != address(0), "Current state is not added (use addState)");
+        require(currentState.owner != address(0), "State is not added (use addState)");
 
         require(FirmChainAbi.verifyBlockSig(bl, currentState.owner), "Block must be signed by owner");
 
