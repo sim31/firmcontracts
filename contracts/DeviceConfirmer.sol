@@ -17,7 +17,10 @@ contract DeviceConfirmer is Confirmer {
     mapping(CId => State) public states;
 
     // TODO: How should initial block work
-    function confirm(Block memory b1, Block memory b2) external returns(BlockId[] memory confirmedBlocks) {
+    function confirm(Block memory b1, Block calldata b2, bytes calldata confirmerData)
+        external
+        returns(BlockId[] memory confirmedBlocks)
+    {
         // Extract these common checks to abstract class
         require(b1.confirmerCode == this, "Wrong confirmer");
         // TODO:

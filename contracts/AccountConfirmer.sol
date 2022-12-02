@@ -4,7 +4,7 @@ pragma solidity >=0.5.0 <0.9.0;
 import "./Firmament.sol";
 
 // TODO: Rename: multisig confirmer
-contract AccountConfirmer is Confirmer {
+contract MultisigConfirmer is Confirmer {
 
     error LackOfChildConfirmations();
     error UnknownState(CId cid);
@@ -25,7 +25,10 @@ contract AccountConfirmer is Confirmer {
     mapping(CId => Device) public devices;
 
     // TODO: How should initial block work
-    function confirm(Block memory b1, Block memory b2) external returns(BlockId[] memory confirmedBlocks) {
+    function confirm(Block memory b1, Block calldata b2, bytes calldata confirmerData)
+        external
+        returns(BlockId[] memory confirmedBlocks)
+    {
         // Extract these common checks to abstract class
         require(b1.confirmerCode == this, "Wrong confirmer");
         // TODO: Check if it is not the same block (b1, b2)
