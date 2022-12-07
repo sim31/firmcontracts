@@ -46,7 +46,6 @@ contract FirmChain is IFirmChain {
 
     struct Confirmer {
         address addr;
-        string name;
         uint8  weight;
         ConfirmerStatus status;
     }
@@ -98,7 +97,7 @@ contract FirmChain is IFirmChain {
         //   Therefore whatever block is 
         if (isExtendedBy(prevId, msg.sender)) {
             _confirmers[msg.sender].status = ConfirmerStatus.FAULTY;
-            emit ByzantineFault(getExtendedBlock(prevId, msg.sender), bId);
+            emit ByzantineFault(getExtendingBlock(prevId, msg.sender), bId);
             return false;
         }
 
@@ -141,6 +140,7 @@ contract FirmChain is IFirmChain {
                 sumWeight += c.weight;
             }
         }
+        // TODO: Make sure that default initial weight allows this to pass
         require(sumWeight >= _threshold, "Not enough confirmations");
 
         execute(bl);
