@@ -51,6 +51,21 @@ library FirmChainAbi {
         return BlockId.wrap(keccak256(encoded));
     }
 
+    function getConfirmerSetId(ConfirmerSet calldata c) public pure returns(CId) {
+        bytes memory encoded = abi.encode(c);
+        return CId.wrap(keccak256(encoded));
+    }
+
+    function getBlockDataId(Block calldata bl) public pure returns(CId) {
+        bytes memory encoded = abi.encode(bl.confirmerSetId, bl.confirmedBl, bl.blockData);
+        return CId.wrap(keccak256(encoded));
+    }
+
+    function verifyBlockDataId(Block calldata bl) public pure returns(bool) {
+        CId realId = getBlockDataId(bl);
+        return CId.unwrap(bl.header.blockDataId) == CId.unwrap(realId);
+    }
+
     // For signing
     function getBlockDigest(BlockHeader calldata header) public pure returns(bytes32) {
         // Like block id but without signatures
@@ -90,6 +105,14 @@ library FirmChainAbi {
     {
         require(header.sigs.length > sigIndex);
         return verifyBlockSig(header, header.sigs[sigIndex], signer);
+    }
+
+    function equalCId(CId c1, CId c2) public pure returns(bool) {
+        return CId.unwrap(c1) == CId.unwrap(c2);
+    }
+
+    function equalBIds(BlockId i1, BlockId i2) public pure returns(bool) {
+        return BlockId.unwrap(i1) == BlockId.unwrap(i2);
     }
 
 }
