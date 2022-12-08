@@ -1,59 +1,95 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import "./FirmChain.sol";
+/// Content identifier (hash)
+type CId is bytes32;
+type BlockId is bytes32;
 
-// Thanks to: https://solidity-by-example.org/signature/
+// TODO: Implement ability to move to different address (this contract should be stopped and refer to the new address)
+
+struct Signature {
+    bytes32 r;
+    bytes32 s;
+    uint8   v;
+}
+
+struct Confirmer {
+    address addr;
+    uint8  weight;
+}
+
+struct ConfirmerSet {
+    Confirmer[] confirmers;
+    uint8       threshold;
+}
+
+struct BlockHeader {
+    address         code;
+    BlockId         prevBlockId;
+    CId             blockDataId;
+    uint            timestamp;
+    Signature[]     sigs;
+}
+
+struct Block {
+    BlockHeader   header;
+    CId           confirmerSetId;
+    // Data identified by blockDataId
+    BlockHeader[] confirmedBl;
+    bytes         blockData;
+}
 
 library FirmChainAbi {
+    // TODO: Make pure?
 
-    function encode(FirmChain.Block calldata bl) public view returns (bytes memory) {
-        return abi.encodePacked(
-            bl.code,
-            bl.parentBlock,
-            bl.selfBlock,
-            bl.childBlock,
-            bl.opDataId,
-            bl.stateId,
-            bl.timestamp,
-            bl.sig.r,
-            bl.sig.s,
-            bl.sig.v
-        );
+    function encode(BlockHeader calldata header) public pure returns (bytes memory) {
+        return abi.encode(header);
     }
 
-    function getBlockId(FirmChain.Block calldata bl) public view returns (FirmChain.BlockId) {
-        // TODO: Generate IPFS hash
-        // hash(encode(bl))
-        return FirmChain.BlockId.wrap(0);
+    function getBlockId(BlockHeader calldata header) public pure returns(BlockId) {
+        bytes memory encoded = encode(header);
+        return BlockId.wrap(keccak256(encoded));
     }
 
     // For signing
-    function getBlockDigest(FirmChain.Block calldata bl) public view returns (bytes32) {
+    function getBlockDigest(BlockHeader calldata header) public pure returns(bytes32) {
+        // Like block id but without signatures
         bytes memory encoded = abi.encodePacked(
-            bl.code,
-            bl.parentBlock,
-            bl.selfBlock,
-            bl.childBlock,
-            bl.opDataId,
-            bl.stateId,
-            bl.timestamp,
-            "",
-            "",
-            uint8(0)
+            header.code,
+            header.prevBlockId,
+            header.blockDataId,
+            header.timestamp
         );
         // TODO: Generate IPFS hash;
-        return 0;
+        return keccak256(encoded);
     }
 
-    function verifyBlockSig(FirmChain.Block calldata bl, address signer)
+
+    function verifyBlockSig(
+        BlockHeader calldata header,
+        Signature calldata sig,
+        address signer
+    )
         public
-        view
-        returns (bool)
+        pure
+        returns(bool)
     {
-        bytes32 digest = getBlockDigest(bl);
-        address sg = ecrecover(digest, bl.sig.v, bl.sig.r, bl.sig.s);
+        bytes32 digest = getBlockDigest(header);
+        address sg = ecrecover(digest, sig.v, sig.r, sig.s);
         return sg == signer;
+    }
+
+    function verifyBlockSig(
+        BlockHeader calldata header,
+        uint8 sigIndex,
+        address signer
+    )
+        public
+        pure
+        returns(bool)
+    {
+        require(header.sigs.length > sigIndex);
+        return verifyBlockSig(header, header.sigs[sigIndex], signer);
     }
 
 }
