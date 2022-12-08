@@ -26,7 +26,7 @@ struct ConfirmerSet {
 struct BlockHeader {
     address         code;
     BlockId         prevBlockId;
-    CId             blockDataId;
+    CId             blockBodyId;
     uint            timestamp;
     Signature[]     sigs;
 }
@@ -61,9 +61,9 @@ library FirmChainAbi {
         return CId.wrap(keccak256(encoded));
     }
 
-    function verifyBlockDataId(Block calldata bl) public pure returns(bool) {
+    function verifyBlockBodyId(Block calldata bl) public pure returns(bool) {
         CId realId = getBlockDataId(bl);
-        return CId.unwrap(bl.header.blockDataId) == CId.unwrap(realId);
+        return CId.unwrap(bl.header.blockBodyId) == CId.unwrap(realId);
     }
 
     // For signing
@@ -72,7 +72,7 @@ library FirmChainAbi {
         bytes memory encoded = abi.encodePacked(
             header.code,
             header.prevBlockId,
-            header.blockDataId,
+            header.blockBodyId,
             header.timestamp
         );
         // TODO: Generate IPFS hash;

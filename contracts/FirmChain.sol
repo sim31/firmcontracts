@@ -7,6 +7,7 @@ import "./IFirmChain.sol";
 contract FirmChain is IFirmChain {
 
     event ByzantineFault(address source, BlockId conflictB1, BlockId conflictB2);
+    event ConfirmFail(address code);
 
     struct Link {
         address confirmer;
@@ -63,6 +64,7 @@ contract FirmChain is IFirmChain {
     // sender can be anyone but check that header contains valid signature
     // of account specified.
     function confirm(BlockHeader calldata header) external returns(bool) {
+        require(msg.sender != address(this));
         return _confirm(header, msg.sender);
     }
 
@@ -78,6 +80,7 @@ contract FirmChain is IFirmChain {
         return _confirm(header, signatory);
     }
 
+    // TODO: What's the implications of some of these requires failing. 
     function _confirm(
         BlockHeader calldata header,
         address confirmerAddr
@@ -89,7 +92,6 @@ contract FirmChain is IFirmChain {
     {
         require(header.code == address(this));
 
-        // TODO: Compute block id properly
         BlockId bId = FirmChainAbi.getBlockId(header);
 
         // Check if id not already confirmed by the sender
@@ -148,7 +150,7 @@ contract FirmChain is IFirmChain {
             "Previous block has to be current _head"
         );
 
-        require(FirmChainAbi.verifyBlockDataId(bl), "Passed block body does not match header.blockDataId");
+        require(FirmChainAbi.verifyBlockBodyId(bl), "Passed block body does not match header.blockDataId");
 
         // Go through current confirmers and count their confirmation weight
         // TODO: Compute block id from header
@@ -169,14 +171,18 @@ contract FirmChain is IFirmChain {
 
         execute(bl, cmds);
 
-        this.confirm(bl.header);
+        _confirm(bl.header, address(this));
 
         _head = bId;
 
         for (uint i = 0; i < bl.confirmedBl.length; i++) {
             IFirmChain code = IFirmChain(bl.confirmedBl[i].code);
-            // TODO: Catch throws and issue events about that (FailedExternalConfirm)
-            code.confirm(bl.header);
+            // confirm function, the way it is implemented in this contract does not allow
+            // sender to confirm to be this contract.
+            try code.confirm(bl.header) {}
+            catch {
+                emit ConfirmFail(address(code));
+            }
         }
     }
 
