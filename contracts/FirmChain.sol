@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.5.0 <0.9.0;
+pragma solidity ^0.8.8;
 
 import "./IFirmChain.sol";
 
@@ -198,7 +198,8 @@ contract FirmChain is IFirmChain {
         require(weightSum >= c.threshold);
 
         // Update _confirmerSet
-        _confSet = c;
+        // TODO:
+        //_confSet = c;
         // Update _confirmerSetId
         _confirmerSetId = FirmChainAbi.getConfirmerSetId(c);
     }
