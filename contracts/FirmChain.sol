@@ -38,7 +38,6 @@ contract FirmChain is IFirmChain {
     bool                        internal    _fault = false;
 
 
-    // TODO: constructor
     constructor(Block memory genesisBl, ConfirmerSet memory confirmers) goodTs(genesisBl.header.timestamp) {
         require(genesisBl.header.code == address(0), "Code has to be set to 0 in genesis block");
         require(BlockId.unwrap(genesisBl.header.prevBlockId) == 0, "prevBlockId has to be set to 0 in genesis block");
@@ -75,7 +74,6 @@ contract FirmChain is IFirmChain {
         return _confirm(header, signatory);
     }
 
-    // TODO: What's the implications of some of these requires failing. 
     function _confirm(
         BlockHeader calldata header,
         address confirmerAddr
@@ -108,7 +106,6 @@ contract FirmChain is IFirmChain {
         //   has not already attempted to extend this block with some other. If so, mark him as faulty.
         // Note that we already checked that `header` block is not yet confirmed.
         //   Therefore whatever block is extending `prevId`, it is not `header`
-        // TODO: is conflConfirmationExists check needed?
         if (isExtendedBy(prevId, confirmerAddr)) {
             confirmerFault(confirmerAddr, prevId, bId);
         }
@@ -145,7 +142,6 @@ contract FirmChain is IFirmChain {
         require(FirmChainAbi.verifyBlockBodyId(bl), "Passed block body does not match header.blockDataId");
 
         // Go through current confirmers and count their confirmation weight
-        // TODO: Compute block id from header
         BlockId bId = FirmChainAbi.getBlockId(bl.header);
         uint16 sumWeight = 0; 
         for (uint i = 0; i < _confSet.confirmers.length; i++) {
@@ -154,7 +150,6 @@ contract FirmChain is IFirmChain {
                 sumWeight += c.weight;
             }
         }
-        // TODO: Make sure that default initial weight allows this to pass
         require(sumWeight >= _confSet.threshold, "Not enough confirmations");
 
         Command[] memory cmds = FirmChainAbi.parseCommands(bl.blockData);
@@ -216,7 +211,6 @@ contract FirmChain is IFirmChain {
         external
         nonFaulty
     {
-        // TODO:
         // * Calculate hash of passed confirmer set (id);
         CId confId = FirmChainAbi.getConfirmerSetId(confSet);
         // * Check id is as specified in b1;

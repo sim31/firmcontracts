@@ -5,8 +5,6 @@ pragma solidity ^0.8.13;
 type CId is bytes32;
 type BlockId is bytes32;
 
-// TODO: Implement ability to move to different address (this contract should be stopped and refer to the new address)
-
 struct Signature {
     bytes32 r;
     bytes32 s;
@@ -46,7 +44,6 @@ struct Command {
 
 
 library FirmChainAbi {
-    // TODO: Make pure?
 
     function encode(BlockHeader calldata header) public pure returns (bytes memory) {
         return abi.encode(header);
