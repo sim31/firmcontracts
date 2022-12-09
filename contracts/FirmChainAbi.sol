@@ -39,6 +39,12 @@ struct Block {
     bytes         blockData;
 }
 
+struct Command {
+    uint8 cmdId;
+    bytes cmdData;
+}
+
+
 library FirmChainAbi {
     // TODO: Make pure?
 
@@ -56,13 +62,13 @@ library FirmChainAbi {
         return CId.wrap(keccak256(encoded));
     }
 
-    function getBlockDataId(Block calldata bl) public pure returns(CId) {
+    function getBlockBodyId(Block calldata bl) public pure returns(CId) {
         bytes memory encoded = abi.encode(bl.confirmerSetId, bl.confirmedBl, bl.blockData);
         return CId.wrap(keccak256(encoded));
     }
 
     function verifyBlockBodyId(Block calldata bl) public pure returns(bool) {
-        CId realId = getBlockDataId(bl);
+        CId realId = getBlockBodyId(bl);
         return CId.unwrap(bl.header.blockBodyId) == CId.unwrap(realId);
     }
 
@@ -78,6 +84,17 @@ library FirmChainAbi {
         // TODO: Generate IPFS hash;
         return keccak256(encoded);
     }
+
+    function parseCommands(bytes calldata blockData) public pure returns(Command[] memory) {
+        Command[] memory cmds = abi.decode(blockData, (Command[]));
+        return cmds;
+    }
+
+    function parseCommandsMem(bytes memory blockData) public pure returns(Command[] memory) {
+        Command[] memory cmds = abi.decode(blockData, (Command[]));
+        return cmds;
+    }
+
 
 
     function verifyBlockSig(
