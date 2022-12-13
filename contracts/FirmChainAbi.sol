@@ -95,25 +95,26 @@ library FirmChainAbi {
         return confSet._confirmers.length();
     } 
 
-    function updateConfirmerSet(ConfirmerSet storage confSet, Command[] memory cmds) public returns(CId) {
-        for (uint i = 0; i < cmds.length; i++) {
-            if (CommandIds(cmds[i].cmdId) == CommandIds.ADD_CONFIRMER) {
-                require(
-                    confSet._confirmers.add(bytes32(cmds[i].cmdData)),
-                    "Confirmer already present"
-                );
-            } else if (CommandIds(cmds[i].cmdId) == CommandIds.REMOVE_CONFIRMER) {
-                require(
-                    confSet._confirmers.remove(bytes32(cmds[i].cmdData)),
-                    "Confirmer is not present"
-                );
-            } else if (CommandIds(cmds[i].cmdId) == CommandIds.SET_CONF_THRESHOLD) {
-                // Could check if sum weight of all confirmers reaches set threshold.
-                // But this can be easily checked off-chain by each confirmer.
-                confSet._threshold = abi.decode(cmds[i].cmdData, (uint8));
-            }
+    function updateConfirmerSet(ConfirmerSet storage confSet, Command memory cmd) public returns(bool changed) {
+        if (cmd.cmdId == type(uint8).max - uint8(CommandIds.ADD_CONFIRMER)) {
+            require(
+                confSet._confirmers.add(bytes32(cmd.cmdData)),
+                "Confirmer already present"
+            );
+            return true;
+        } else if (cmd.cmdId == type(uint8).max - uint8(CommandIds.REMOVE_CONFIRMER)) {
+            require(
+                confSet._confirmers.remove(bytes32(cmd.cmdData)),
+                "Confirmer is not present"
+            );
+            return true;
+        } else if (cmd.cmdId == type(uint8).max - uint8(CommandIds.SET_CONF_THRESHOLD)) {
+            // Could check if sum weight of all confirmers reaches set threshold.
+            // But this can be easily checked off-chain by each confirmer.
+            confSet._threshold = abi.decode(cmd.cmdData, (uint8));
+            return true;
         }
-        return getConfirmerSetId(confSet);
+        return false;
     }
 
     function setConfirmerSet(

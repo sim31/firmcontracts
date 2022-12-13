@@ -45,7 +45,11 @@ contract FirmChain is IFirmChain {
 
         require(CId.unwrap(genesisBl.confirmerSetId) != 0);
         Command[] memory cmds = FirmChainAbi.parseCommandsMem(genesisBl.blockData);
-        updateConfirmerSet(genesisBl.confirmerSetId, cmds);
+        for (uint i = 0; i < cmds.length; i++) {
+            _confirmerSet.updateConfirmerSet(cmds[i]);
+        }
+        _confirmerSetId = _confirmerSet.getConfirmerSetId();
+        require(CId.unwrap(_confirmerSetId) == CId.unwrap(genesisBl.confirmerSetId));
 
         BlockId bId = FirmChainAbi.getBlockId(genesisBl.header);
 
@@ -151,11 +155,8 @@ contract FirmChain is IFirmChain {
         }
         require(sumWeight >= _confirmerSet.getConfirmerThreshold(), "Not enough confirmations");
 
-        Command[] memory cmds = FirmChainAbi.parseCommands(bl.blockData);
-
-        updateConfirmerSet(bl.confirmerSetId, cmds);
-
-        execute(bl, cmds);
+        execute(bl);
+        require(CId.unwrap(_confirmerSetId) == CId.unwrap(bl.confirmerSetId));
 
         require(_confirm(bl.header, address(this)));
 
@@ -170,11 +171,6 @@ contract FirmChain is IFirmChain {
                 emit ConfirmFail(address(code));
             }
         }
-    }
-
-    function updateConfirmerSet(CId declaredId, Command[] memory cmds) internal {
-        _confirmerSetId = _confirmerSet.updateConfirmerSet(cmds);
-        require(CId.unwrap(_confirmerSetId) == CId.unwrap(declaredId));
     }
 
     function proveFault(
@@ -221,10 +217,26 @@ contract FirmChain is IFirmChain {
         }
     }
 
+    function handleCommand(Block calldata bl, Command memory cmd) internal virtual returns(bool handled) {
+        return false;
+    }
+
     // This function should not access any external state,
     // so that if confirmers executed executed successfully before confirming, 
     // it would execute successfully on any other platform as well.
-    function execute(Block calldata bl, Command[] memory cmds) internal virtual {}
+    function execute(Block calldata bl) internal virtual {
+        Command[] memory cmds = FirmChainAbi.parseCommands(bl.blockData);
+        bool confirmersChanged = false;
+        for (uint i = 0; i < cmds.length; i++) {
+            if (!handleCommand(bl, cmds[i])) {
+                confirmersChanged = _confirmerSet.updateConfirmerSet(cmds[i]);
+            }
+        }
+        
+        if (confirmersChanged) {
+            _confirmerSetId = _confirmerSet.getConfirmerSetId();
+        }
+    }
 
     function packLink(Link calldata c) public pure returns(bytes memory) {
         return abi.encodePacked(c.confirmer, c.blockId);
