@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.8;
 
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /// Content identifier (hash)
 type CId is bytes32;
 type BlockId is bytes32;
+
+using EnumerableSet for EnumerableSet.Bytes32Set;
 
 struct Signature {
     bytes32 r;
@@ -18,8 +21,8 @@ struct Confirmer {
 }
 
 struct ConfirmerSet {
-    Confirmer[] confirmers;
-    uint8       threshold;
+    EnumerableSet.Bytes32Set _confirmers;
+    uint8                    _threshold;
 }
 
 struct BlockHeader {
@@ -43,10 +46,11 @@ struct Command {
     bytes cmdData;
 }
 
-
 library FirmChainAbi {
 
-    function encode(BlockHeader calldata header) public pure returns (bytes memory) {
+    enum CommandIds { ADD_CONFIRMER, REMOVE_CONFIRMER, SET_CONF_THRESHOLD }
+
+    function encode(BlockHeader calldata header) public pure returns(bytes memory) {
         return abi.encode(header);
     }
 
@@ -55,9 +59,76 @@ library FirmChainAbi {
         return BlockId.wrap(keccak256(encoded));
     }
 
-    function getConfirmerSetId(ConfirmerSet calldata c) public pure returns(CId) {
-        bytes memory encoded = abi.encode(c);
-        return CId.wrap(keccak256(encoded));
+    function getConfirmerThreshold(ConfirmerSet storage confSet) public view returns(uint8) {
+        return confSet._threshold;
+    }
+
+    function packConfirmer(Confirmer calldata confirmer) public pure returns(bytes32) {
+        bytes32 r = bytes32((uint256(uint160(confirmer.addr)) << 8) | confirmer.weight);
+        return r;
+    }
+
+    function unpackConfirmer(bytes32 p) public pure returns(Confirmer memory) {
+        uint8 weight = uint8(p[0]);
+        address a = address(uint160(uint256(p) >> 8));
+        return Confirmer(a, weight);
+    }
+
+    function getConfirmerSetId(ConfirmerSet storage confSet) public view returns(CId) {
+        return CId.wrap(keccak256(abi.encodePacked(confSet._threshold, confSet._confirmers._inner._values)));
+    }
+
+    function getConfirmerSetId(Confirmer[] calldata confirmers, uint8 threshold) public pure returns(CId) {
+        bytes32[] memory packedConfs = new bytes32[](confirmers.length);
+        for (uint i = 0; i < confirmers.length; i++) {
+            packedConfs[i] = packConfirmer(confirmers[i]);
+        }        
+        return CId.wrap(keccak256(abi.encodePacked(threshold, packedConfs)));
+    }
+
+    function confirmerAt(ConfirmerSet storage confSet, uint256 index) public view returns(Confirmer memory) {
+        bytes32 v = confSet._confirmers.at(index);
+        return unpackConfirmer(v);
+    }
+
+    function confirmersLength(ConfirmerSet storage confSet) public view returns(uint256) {
+        return confSet._confirmers.length();
+    } 
+
+    function updateConfirmerSet(ConfirmerSet storage confSet, Command[] memory cmds) public returns(CId) {
+        for (uint i = 0; i < cmds.length; i++) {
+            if (CommandIds(cmds[i].cmdId) == CommandIds.ADD_CONFIRMER) {
+                require(
+                    confSet._confirmers.add(bytes32(cmds[i].cmdData)),
+                    "Confirmer already present"
+                );
+            } else if (CommandIds(cmds[i].cmdId) == CommandIds.REMOVE_CONFIRMER) {
+                require(
+                    confSet._confirmers.remove(bytes32(cmds[i].cmdData)),
+                    "Confirmer is not present"
+                );
+            } else if (CommandIds(cmds[i].cmdId) == CommandIds.SET_CONF_THRESHOLD) {
+                // Could check if sum weight of all confirmers reaches set threshold.
+                // But this can be easily checked off-chain by each confirmer.
+                confSet._threshold = abi.decode(cmds[i].cmdData, (uint8));
+            }
+        }
+        return getConfirmerSetId(confSet);
+    }
+
+    function setConfirmerSet(
+        ConfirmerSet storage confSet,
+        Confirmer[] calldata confirmers,
+        uint8 threshold
+    )
+        public
+        returns(CId)
+    {
+        for (uint i = 0; i < confirmers.length; i++) {
+            confSet._confirmers.add(packConfirmer(confirmers[i]));
+        }
+        confSet._threshold = threshold;
+        return getConfirmerSetId(confSet);
     }
 
     function getBlockBodyId(Block calldata bl) public pure returns(CId) {
@@ -92,8 +163,6 @@ library FirmChainAbi {
         Command[] memory cmds = abi.decode(blockData, (Command[]));
         return cmds;
     }
-
-
 
     function verifyBlockSig(
         BlockHeader calldata header,

@@ -3,18 +3,18 @@ pragma solidity ^0.8.8;
 
 import "./IFirmChain.sol";
 
-
 contract FirmChain is IFirmChain {
 
     event ByzantineFault(address source, BlockId forkPoint);
     event ConfirmFail(address code);
+
+    using FirmChainAbi for ConfirmerSet;
 
     struct Link {
         address confirmer;
         BlockId blockId;
     }
 
-    enum CommandIds { CONFIRMER_SET }
 
     enum ConfirmerStatus { UNINITIALIZED, INITIALIZED, FAULTY }
 
@@ -29,27 +29,25 @@ contract FirmChain is IFirmChain {
     mapping(bytes => BlockId)   internal    _forwardLinks;
     // Like forwardLinks but stores alternative forks
     mapping(bytes => BlockId[]) internal    _conflictForwardLinks;
-
-    ConfirmerSet                internal    _confSet;
-    CId                         internal    _confirmerSetId;
+    CId                         private     _confirmerSetId;
+    ConfirmerSet                private     _confirmerSet;
     mapping(address => ConfirmerStatus)     _confirmerStatus;
     // Last finalized block
-    BlockId  internal                       _head;
+    BlockId                     internal    _head;
     bool                        internal    _fault = false;
 
 
-    constructor(Block memory genesisBl, ConfirmerSet memory confirmers) goodTs(genesisBl.header.timestamp) {
+    constructor(Block memory genesisBl) 
+        goodTs(genesisBl.header.timestamp)
+    {
         require(genesisBl.header.code == address(0), "Code has to be set to 0 in genesis block");
         require(BlockId.unwrap(genesisBl.header.prevBlockId) == 0, "prevBlockId has to be set to 0 in genesis block");
 
-        setConfirmers(confirmers);        
-
-        BlockId bId = FirmChainAbi.getBlockId(genesisBl.header);
-
-        // TODO: Any other checks to perform?
         require(CId.unwrap(genesisBl.confirmerSetId) != 0);
         Command[] memory cmds = FirmChainAbi.parseCommandsMem(genesisBl.blockData);
         updateConfirmerSet(genesisBl.confirmerSetId, cmds);
+
+        BlockId bId = FirmChainAbi.getBlockId(genesisBl.header);
 
         _backlinks[packedLink(address(this), bId)] = BlockId.wrap("1"); 
         _head = bId;
@@ -139,18 +137,19 @@ contract FirmChain is IFirmChain {
             "Previous block has to be current _head"
         );
 
+        // TODO: Add these functions as members of Block, BlockHeader
         require(FirmChainAbi.verifyBlockBodyId(bl), "Passed block body does not match header.blockDataId");
 
         // Go through current confirmers and count their confirmation weight
         BlockId bId = FirmChainAbi.getBlockId(bl.header);
         uint16 sumWeight = 0; 
-        for (uint i = 0; i < _confSet.confirmers.length; i++) {
-            Confirmer storage c = _confSet.confirmers[i];
+        for (uint i = 0; i < _confirmerSet.confirmersLength(); i++) {
+            Confirmer memory c = _confirmerSet.confirmerAt(i);
             if (isConfirmedBy(bId, c.addr)) {
                 sumWeight += c.weight;
             }
         }
-        require(sumWeight >= _confSet.threshold, "Not enough confirmations");
+        require(sumWeight >= _confirmerSet.getConfirmerThreshold(), "Not enough confirmations");
 
         Command[] memory cmds = FirmChainAbi.parseCommands(bl.blockData);
 
@@ -165,7 +164,7 @@ contract FirmChain is IFirmChain {
         for (uint i = 0; i < bl.confirmedBl.length; i++) {
             IFirmChain code = IFirmChain(bl.confirmedBl[i].code);
             // confirm function, the way it is implemented in this contract does not allow
-            // sender to confirm to be this contract.
+            // sender of confirm to be this contract.
             try code.confirm(bl.header) {}
             catch {
                 emit ConfirmFail(address(code));
@@ -173,47 +172,22 @@ contract FirmChain is IFirmChain {
         }
     }
 
-    // TODO: Think about what to make private or public
     function updateConfirmerSet(CId declaredId, Command[] memory cmds) internal {
-        if (CId.unwrap(declaredId) != CId.unwrap(_confirmerSetId) ) {
-            require(
-                cmds[0].cmdId == uint8(CommandIds.CONFIRMER_SET),
-                "If confirmerSetId is different from previous block then block has to have CONFIRMER_SET command" 
-            );
-            ConfirmerSet memory confSet = abi.decode(cmds[0].cmdData, (ConfirmerSet));
-            setConfirmers(confSet);
-            require(
-                CId.unwrap(_confirmerSetId) == CId.unwrap(declaredId),
-                "ConfirmerSetId does not match"
-            );
-        }
-    }
-
-    function setConfirmers(ConfirmerSet memory c) private {
-        // verify that confirmer set is valid
-        uint256 weightSum = 0;
-        for (uint i = 0; i < c.confirmers.length; i++) {
-            weightSum += c.confirmers[i].weight;
-        }
-        require(weightSum >= c.threshold);
-
-        // Update _confirmerSet
-        // TODO:
-        //_confSet = c;
-        // Update _confirmerSetId
-        _confirmerSetId = FirmChainAbi.getConfirmerSetId(c);
+        _confirmerSetId = _confirmerSet.updateConfirmerSet(cmds);
+        require(CId.unwrap(_confirmerSetId) == CId.unwrap(declaredId));
     }
 
     function proveFault(
         Block calldata b1,
-        ConfirmerSet calldata confSet,
+        Confirmer[] calldata confirmers,
+        uint8 threshold,
         Block calldata b2
     )
         external
         nonFaulty
     {
         // * Calculate hash of passed confirmer set (id);
-        CId confId = FirmChainAbi.getConfirmerSetId(confSet);
+        CId confId = FirmChainAbi.getConfirmerSetId(confirmers, threshold);
         // * Check id is as specified in b1;
         require(CId.unwrap(confId) == CId.unwrap(b1.confirmerSetId));
         // * Check that b1 is finalized;
@@ -226,13 +200,13 @@ contract FirmChain is IFirmChain {
         require(BlockId.unwrap(altId) != BlockId.unwrap(b2Id));
         // * Check that either _conflictForwardLinks and _forwardLinks have enough confirmations for b2 (confirmer, b1) -> b2
         uint16 sumWeight = 0; 
-        for (uint i = 0; i < confSet.confirmers.length; i++) {
-            Confirmer calldata c = confSet.confirmers[i];
+        for (uint i = 0; i < confirmers.length; i++) {
+            Confirmer memory c = confirmers[i];
             if (isConfirmedBy(b2Id, c.addr) || conflConfirmationExists(b1Id, b2Id, c.addr)) {
                 sumWeight += c.weight;
             }
         }
-        require(sumWeight >= confSet.threshold);
+        require(sumWeight >= threshold);
         // * Mark this chain as faulty
         _fault = true;
         // * Emit event
