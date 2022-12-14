@@ -4,7 +4,6 @@ pragma solidity ^0.8.8;
 import "./IFirmChain.sol";
 
 contract FirmChain is IFirmChain {
-
     event ByzantineFault(address source, BlockId forkPoint);
     event ConfirmFail(address code);
 
@@ -15,49 +14,63 @@ contract FirmChain is IFirmChain {
         BlockId blockId;
     }
 
-
-    enum ConfirmerStatus { UNINITIALIZED, INITIALIZED, FAULTY }
+    enum ConfirmerStatus {
+        UNINITIALIZED,
+        INITIALIZED,
+        FAULTY
+    }
 
     // TODO: Expose some of these variables with getters?
     // Link(confirmer X, Block A) => block B, which A extends (confirms) (e.g. chain: A -> B -> C)
     // Link(this, A) is filled only if A is finalized according to this contract;
     // Link(X, A) is filled if A is confirmed by X;
-    mapping(bytes => BlockId)   internal    _backlinks;
+    mapping(bytes => BlockId) internal _backlinks;
     // Link(confirmer X, block A) => block which extends (confirms) A (e.g. B in chain: C -> B -> A)
     // Link(this, A) => B: is only stored if A is extended by B and B is finalized;
     // Link(X, A) => B: is stored if A is extended by B and B is confirmed by X;
-    mapping(bytes => BlockId)   internal    _forwardLinks;
+    mapping(bytes => BlockId) internal _forwardLinks;
     // Like forwardLinks but stores alternative forks
-    mapping(bytes => BlockId[]) internal    _conflictForwardLinks;
-    CId                         private     _confirmerSetId;
-    ConfirmerSet                private     _confirmerSet;
-    mapping(address => ConfirmerStatus)     _confirmerStatus;
+    mapping(bytes => BlockId[]) internal _conflictForwardLinks;
+    CId private _confirmerSetId;
+    ConfirmerSet private _confirmerSet;
+    mapping(address => ConfirmerStatus) _confirmerStatus;
     // Last finalized block
-    BlockId                     internal    _head;
-    bool                        internal    _fault = false;
+    BlockId internal _head;
+    bool internal _fault = false;
 
+    constructor(Block memory genesisBl) goodTs(genesisBl.header.timestamp) {
+        require(
+            genesisBl.header.code == address(0),
+            "Code has to be set to 0 in genesis block"
+        );
+        require(
+            BlockId.unwrap(genesisBl.header.prevBlockId) == 0,
+            "prevBlockId has to be set to 0 in genesis block"
+        );
 
-    constructor(Block memory genesisBl) 
-        goodTs(genesisBl.header.timestamp)
-    {
-        require(genesisBl.header.code == address(0), "Code has to be set to 0 in genesis block");
-        require(BlockId.unwrap(genesisBl.header.prevBlockId) == 0, "prevBlockId has to be set to 0 in genesis block");
-
-        require(CId.unwrap(genesisBl.confirmerSetId) != 0);
-        Command[] memory cmds = FirmChainAbi.parseCommandsMem(genesisBl.blockData);
+        require(
+            CId.unwrap(genesisBl.confirmerSetId) != 0,
+            "Confirmer set has to be set"
+        );
+        Command[] memory cmds = FirmChainAbi.parseCommandsMem(
+            genesisBl.blockData
+        );
         for (uint i = 0; i < cmds.length; i++) {
             _confirmerSet.updateConfirmerSet(cmds[i]);
         }
         _confirmerSetId = _confirmerSet.getConfirmerSetId();
-        require(CId.unwrap(_confirmerSetId) == CId.unwrap(genesisBl.confirmerSetId));
+        require(
+            CId.unwrap(_confirmerSetId) == CId.unwrap(genesisBl.confirmerSetId),
+            "Declared confirmer set does not match computed"
+        );
 
         BlockId bId = FirmChainAbi.getBlockId(genesisBl.header);
 
-        _backlinks[packedLink(address(this), bId)] = BlockId.wrap("1"); 
+        _backlinks[packedLink(address(this), bId)] = BlockId.wrap("1");
         _head = bId;
     }
 
-    function confirm(BlockHeader calldata header) external returns(bool) {
+    function confirm(BlockHeader calldata header) external returns (bool) {
         require(msg.sender != address(this));
         return _confirm(header, msg.sender);
     }
@@ -68,10 +81,7 @@ contract FirmChain is IFirmChain {
         BlockHeader calldata header,
         address signatory,
         uint8 sigIndex
-    )
-        external
-        returns(bool)
-    {
+    ) external returns (bool) {
         require(FirmChainAbi.verifyBlockSig(header, sigIndex, signatory));
         return _confirm(header, signatory);
     }
@@ -79,12 +89,7 @@ contract FirmChain is IFirmChain {
     function _confirm(
         BlockHeader calldata header,
         address confirmerAddr
-    )
-        private
-        nonFaulty
-        goodTs(header.timestamp)
-        returns(bool)
-    {
+    ) private nonFaulty goodTs(header.timestamp) returns (bool) {
         require(header.code == address(this));
 
         BlockId bId = FirmChainAbi.getBlockId(header);
@@ -99,10 +104,7 @@ contract FirmChain is IFirmChain {
 
         // Get id of the block this block extends and check if it is finalized;
         BlockId prevId = header.prevBlockId;
-        require(
-            isFinalized(prevId),
-            "Previous block has to be finalized."
-        );
+        require(isFinalized(prevId), "Previous block has to be finalized.");
 
         // Get id of the block this block extends and check if sender
         //   has not already attempted to extend this block with some other. If so, mark him as faulty.
@@ -142,18 +144,24 @@ contract FirmChain is IFirmChain {
         );
 
         // TODO: Add these functions as members of Block, BlockHeader
-        require(FirmChainAbi.verifyBlockBodyId(bl), "Passed block body does not match header.blockDataId");
+        require(
+            FirmChainAbi.verifyBlockBodyId(bl),
+            "Passed block body does not match header.blockDataId"
+        );
 
         // Go through current confirmers and count their confirmation weight
         BlockId bId = FirmChainAbi.getBlockId(bl.header);
-        uint16 sumWeight = 0; 
+        uint16 sumWeight = 0;
         for (uint i = 0; i < _confirmerSet.confirmersLength(); i++) {
             Confirmer memory c = _confirmerSet.confirmerAt(i);
             if (isConfirmedBy(bId, c.addr)) {
                 sumWeight += c.weight;
             }
         }
-        require(sumWeight >= _confirmerSet.getConfirmerThreshold(), "Not enough confirmations");
+        require(
+            sumWeight >= _confirmerSet.getConfirmerThreshold(),
+            "Not enough confirmations"
+        );
 
         execute(bl);
         require(CId.unwrap(_confirmerSetId) == CId.unwrap(bl.confirmerSetId));
@@ -166,8 +174,7 @@ contract FirmChain is IFirmChain {
             IFirmChain code = IFirmChain(bl.confirmedBl[i].code);
             // confirm function, the way it is implemented in this contract does not allow
             // sender of confirm to be this contract.
-            try code.confirm(bl.header) {}
-            catch {
+            try code.confirm(bl.header) {} catch {
                 emit ConfirmFail(address(code));
             }
         }
@@ -178,10 +185,7 @@ contract FirmChain is IFirmChain {
         Confirmer[] calldata confirmers,
         uint8 threshold,
         Block calldata b2
-    )
-        external
-        nonFaulty
-    {
+    ) external nonFaulty {
         // * Calculate hash of passed confirmer set (id);
         CId confId = FirmChainAbi.getConfirmerSetId(confirmers, threshold);
         // * Check id is as specified in b1;
@@ -195,10 +199,13 @@ contract FirmChain is IFirmChain {
         BlockId altId = getExtendingBlock(b1Id, address(this));
         require(BlockId.unwrap(altId) != BlockId.unwrap(b2Id));
         // * Check that either _conflictForwardLinks and _forwardLinks have enough confirmations for b2 (confirmer, b1) -> b2
-        uint16 sumWeight = 0; 
+        uint16 sumWeight = 0;
         for (uint i = 0; i < confirmers.length; i++) {
             Confirmer memory c = confirmers[i];
-            if (isConfirmedBy(b2Id, c.addr) || conflConfirmationExists(b1Id, b2Id, c.addr)) {
+            if (
+                isConfirmedBy(b2Id, c.addr) ||
+                conflConfirmationExists(b1Id, b2Id, c.addr)
+            ) {
                 sumWeight += c.weight;
             }
         }
@@ -209,7 +216,11 @@ contract FirmChain is IFirmChain {
         emit ByzantineFault(address(this), b1Id);
     }
 
-    function confirmerFault(address confirmer, BlockId prevId, BlockId nextId) private {
+    function confirmerFault(
+        address confirmer,
+        BlockId prevId,
+        BlockId nextId
+    ) private {
         _confirmerStatus[confirmer] = ConfirmerStatus.FAULTY;
         if (!conflConfirmationExists(prevId, nextId, confirmer)) {
             _conflictForwardLinks[packedLink(confirmer, prevId)].push(nextId);
@@ -217,12 +228,15 @@ contract FirmChain is IFirmChain {
         }
     }
 
-    function handleCommand(Block calldata bl, Command memory cmd) internal virtual returns(bool handled) {
+    function handleCommand(
+        Block calldata bl,
+        Command memory cmd
+    ) internal virtual returns (bool handled) {
         return false;
     }
 
     // This function should not access any external state,
-    // so that if confirmers executed executed successfully before confirming, 
+    // so that if confirmers executed executed successfully before confirming,
     // it would execute successfully on any other platform as well.
     function execute(Block calldata bl) internal virtual {
         Command[] memory cmds = FirmChainAbi.parseCommands(bl.blockData);
@@ -232,40 +246,62 @@ contract FirmChain is IFirmChain {
                 confirmersChanged = _confirmerSet.updateConfirmerSet(cmds[i]);
             }
         }
-        
+
         if (confirmersChanged) {
             _confirmerSetId = _confirmerSet.getConfirmerSetId();
         }
     }
 
-    function packLink(Link calldata c) public pure returns(bytes memory) {
+    function packLink(Link calldata c) public pure returns (bytes memory) {
         return abi.encodePacked(c.confirmer, c.blockId);
     }
 
-    function packedLink(address confirmer, BlockId bId) public pure returns(bytes memory) {
+    function packedLink(
+        address confirmer,
+        BlockId bId
+    ) public pure returns (bytes memory) {
         return abi.encodePacked(confirmer, bId);
     }
 
-    function getExtendingBlock(BlockId blockId, address confirmer) public view returns(BlockId) {
+    function getExtendingBlock(
+        BlockId blockId,
+        address confirmer
+    ) public view returns (BlockId) {
         return _forwardLinks[packedLink(confirmer, blockId)];
     }
 
-    function isExtendedBy(BlockId blockId, address confirmer) public view returns(bool) {
+    function isExtendedBy(
+        BlockId blockId,
+        address confirmer
+    ) public view returns (bool) {
         return BlockId.unwrap(getExtendingBlock(blockId, confirmer)) != 0;
     }
 
-    function getExtendedBlock(BlockId confirmingBlock, address confirmer) public view returns(BlockId) {
+    function getExtendedBlock(
+        BlockId confirmingBlock,
+        address confirmer
+    ) public view returns (BlockId) {
         return _backlinks[packedLink(confirmer, confirmingBlock)];
-
     }
 
-    function getConflExtendingIds(BlockId prevId, address confirmer) internal view returns(BlockId[] storage) {
-        BlockId[] storage extendingIds = _conflictForwardLinks[packedLink(confirmer, prevId)];
+    function getConflExtendingIds(
+        BlockId prevId,
+        address confirmer
+    ) internal view returns (BlockId[] storage) {
+        BlockId[] storage extendingIds = _conflictForwardLinks[
+            packedLink(confirmer, prevId)
+        ];
         return extendingIds;
     }
 
-    function conflConfirmationExists(BlockId prevId, BlockId nextId, address confirmer) public view returns(bool) {
-        BlockId[] storage confirmingIds = _conflictForwardLinks[packedLink(confirmer, prevId)];
+    function conflConfirmationExists(
+        BlockId prevId,
+        BlockId nextId,
+        address confirmer
+    ) public view returns (bool) {
+        BlockId[] storage confirmingIds = _conflictForwardLinks[
+            packedLink(confirmer, prevId)
+        ];
         for (uint i = 0; i < confirmingIds.length; i++) {
             if (BlockId.unwrap(confirmingIds[i]) == BlockId.unwrap(nextId)) {
                 return true;
@@ -274,28 +310,37 @@ contract FirmChain is IFirmChain {
         return false;
     }
 
-    function conflConfirmationExists(BlockId prevId, address confirmer) public view returns(bool) {
-        BlockId[] storage confirmingIds = _conflictForwardLinks[packedLink(confirmer, prevId)];
+    function conflConfirmationExists(
+        BlockId prevId,
+        address confirmer
+    ) public view returns (bool) {
+        BlockId[] storage confirmingIds = _conflictForwardLinks[
+            packedLink(confirmer, prevId)
+        ];
         return confirmingIds.length > 0;
     }
 
-    function isConfirmedBy(BlockId blockId, address confirmer) public view returns(bool) {
+    function isConfirmedBy(
+        BlockId blockId,
+        address confirmer
+    ) public view returns (bool) {
         return BlockId.unwrap(getExtendedBlock(blockId, confirmer)) != 0;
     }
 
-    function isFinalized(BlockId blockId) public view returns(bool) {
+    function isFinalized(BlockId blockId) public view returns (bool) {
         return isConfirmedBy(blockId, address(this));
     }
 
     modifier goodTs(uint ts) {
-        require(ts <= block.timestamp, "Block timestamp is later than current time");
+        require(
+            ts <= block.timestamp,
+            "Block timestamp is later than current time"
+        );
         _;
     }
 
     modifier nonFaulty() {
-        require(!_fault,  "Fault was detected");
+        require(!_fault, "Fault was detected");
         _;
     }
-
-
 }

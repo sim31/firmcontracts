@@ -163,6 +163,7 @@ library FirmChainAbi {
     function parseCommandsMem(bytes memory blockData) public pure returns(Command[] memory) {
         Command[] memory cmds = abi.decode(blockData, (Command[]));
         return cmds;
+        // return new Command[](0);
     }
 
     function verifyBlockSig(
