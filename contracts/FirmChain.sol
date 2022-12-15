@@ -2,6 +2,8 @@
 pragma solidity ^0.8.8;
 
 import "./IFirmChain.sol";
+import "./FirmChainAbi.sol";
+import "hardhat/console.sol";
 
 contract FirmChain is IFirmChain {
     event ByzantineFault(address source, BlockId forkPoint);
@@ -39,6 +41,7 @@ contract FirmChain is IFirmChain {
     bool internal _fault = false;
 
     constructor(Block memory genesisBl) goodTs(genesisBl.header.timestamp) {
+        console.log("Constructor");
         require(
             genesisBl.header.code == address(0),
             "Code has to be set to 0 in genesis block"
@@ -47,15 +50,18 @@ contract FirmChain is IFirmChain {
             BlockId.unwrap(genesisBl.header.prevBlockId) == 0,
             "prevBlockId has to be set to 0 in genesis block"
         );
-
         require(
             CId.unwrap(genesisBl.confirmerSetId) != 0,
             "Confirmer set has to be set"
         );
+        console.log("Parsing commands");
         Command[] memory cmds = FirmChainAbi.parseCommandsMem(
             genesisBl.blockData
         );
+
+        console.log("Updating confirmer set. Length: %i", cmds.length);
         for (uint i = 0; i < cmds.length; i++) {
+            console.log("Cmd: %i", i);
             _confirmerSet.updateConfirmerSet(cmds[i]);
         }
         _confirmerSetId = _confirmerSet.getConfirmerSetId();
@@ -64,8 +70,10 @@ contract FirmChain is IFirmChain {
             "Declared confirmer set does not match computed"
         );
 
+        console.log("Computing block id");
         BlockId bId = FirmChainAbi.getBlockId(genesisBl.header);
 
+        console.log("Setting backlings and _head");
         _backlinks[packedLink(address(this), bId)] = BlockId.wrap("1");
         _head = bId;
     }

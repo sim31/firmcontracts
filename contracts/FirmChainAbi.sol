@@ -2,6 +2,7 @@
 pragma solidity ^0.8.8;
 
 import "../node_modules/@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "hardhat/console.sol";
 
 /// Content identifier (hash)
 type CId is bytes32;
@@ -59,6 +60,14 @@ library FirmChainAbi {
         return abi.encode(header);
     }
 
+    function encodeCmd(Command calldata cmd) public pure returns(bytes memory) {
+        return abi.encode(cmd);
+    }
+
+    function encodeCmds(Command[] calldata cmds) public pure returns(bytes memory) {
+        return abi.encode(cmds);
+    }
+
     function getBlockId(
         BlockHeader calldata header
     ) public pure returns (BlockId) {
@@ -75,6 +84,17 @@ library FirmChainAbi {
     function packConfirmer(
         Confirmer calldata confirmer
     ) public pure returns (bytes32) {
+        // TODO: which is more efficient?
+        bytes32 r = bytes32(
+            (uint256(uint160(confirmer.addr)) << 8) | confirmer.weight
+        );
+        return r;
+    }
+
+    function packConfirmerMem(
+        Confirmer memory confirmer
+    ) public pure returns (bytes32) {
+        // TODO: which is more efficient?
         bytes32 r = bytes32(
             (uint256(uint160(confirmer.addr)) << 8) | confirmer.weight
         );
@@ -131,10 +151,15 @@ library FirmChainAbi {
         Command memory cmd
     ) public returns (bool changed) {
         if (cmd.cmdId == type(uint8).max - uint8(CommandIds.ADD_CONFIRMER)) {
+            // TODO: remove this
+            Confirmer memory conf = unpackConfirmer(bytes32(cmd.cmdData));
+            console.log("Adding confirmer: %s", conf.addr);
             require(
-                confSet._confirmers.add(bytes32(cmd.cmdData)),
+                // TODO: Error here for the third confirmer
+                confSet._confirmers.add(packConfirmerMem(conf)),
                 "Confirmer already present"
             );
+            console.log("Added confirmer");
             return true;
         } else if (
             cmd.cmdId == type(uint8).max - uint8(CommandIds.REMOVE_CONFIRMER)
@@ -147,6 +172,7 @@ library FirmChainAbi {
         } else if (
             cmd.cmdId == type(uint8).max - uint8(CommandIds.SET_CONF_THRESHOLD)
         ) {
+            console.log("Setting threshold: %i", uint8(bytes1(cmd.cmdData)));
             // Could check if sum weight of all confirmers reaches set threshold.
             // But this can be easily checked off-chain by each confirmer.
             confSet._threshold = abi.decode(cmd.cmdData, (uint8));
@@ -167,13 +193,28 @@ library FirmChainAbi {
         return getConfirmerSetId(confSet);
     }
 
+    function encodeBlockBody(
+        CId confSetId,
+        BlockHeader[] calldata confirmedBl,
+        bytes calldata blockData
+    )
+        public
+        pure
+        returns(bytes memory)
+    {
+        return abi.encode(
+            confSetId,
+            confirmedBl,
+            blockData
+        );
+    }
+
     function getBlockBodyId(Block calldata bl) public pure returns (CId) {
-        bytes memory encoded = abi.encode(
+        return CId.wrap(keccak256(encodeBlockBody(
             bl.confirmerSetId,
             bl.confirmedBl,
             bl.blockData
-        );
-        return CId.wrap(keccak256(encoded));
+        )));
     }
 
     function verifyBlockBodyId(Block calldata bl) public pure returns (bool) {
