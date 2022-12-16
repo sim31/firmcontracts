@@ -100,7 +100,7 @@ library FirmChainAbi {
     }
 
     function unpackConfirmer(bytes32 p) public pure returns (Confirmer memory) {
-        uint8 weight = uint8(p[0]);
+        uint8 weight = uint8(p[31]);
         address a = address(uint160(uint256(p) >> 8));
         return Confirmer(a, weight);
     }
@@ -149,7 +149,7 @@ library FirmChainAbi {
         if (cmd.cmdId == type(uint8).max - uint8(CommandIds.ADD_CONFIRMER)) {
             // TODO: remove this
             Confirmer memory conf = unpackConfirmer(bytes32(cmd.cmdData));
-            console.log("Adding confirmer: %s", conf.addr);
+            console.log("Adding confirmer: %s, %i", conf.addr, conf.weight);
             require(
                 // TODO: Error here for the third confirmer
                 confSet._confirmers.add(packConfirmerMem(conf)),

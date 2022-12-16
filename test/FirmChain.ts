@@ -49,17 +49,12 @@ describe("FirmChain", function () {
     return fchainAbi;
   }
 
-  // We define a fixture to reuse the same setup in every test.
-  // We use loadFixture to run this setup once, snapshot that state,
-  // and reset Hardhat Network to that snapshot in every test.
-  it("Should deploy successfully", async function() {
-
+  async function createGenesisBlock() {
     const fchainAbi = await loadFixture(deployAbi);
 
-    // TODO: tests for constructor (reverting then needed)
-
     // Contracts are deployed using the first signer/account by default
-    const [acc1, acc2, acc3, acc4, acc5] = await ethers.getSigners();
+    const signers = await ethers.getSigners();
+    const [acc1, acc2, acc3, acc4, acc5] = signers;
     console.log(`Accounts:\n ${acc1.address}\n${acc2.address}\n${acc3.address}\n${acc4.address}`);
 
     const factory = await ethers.getContractFactory("FirmChain", {
@@ -116,9 +111,31 @@ describe("FirmChain", function () {
       blockData: blockData
     };
 
-    // TODO: add requires to figure out a reason for failing
-    expect(await factory.deploy(block, { gasLimit: 2552000 })).to.not.be.reverted;
-  });
+    return { block, signers, packedConfirmers, factory };
+
+  }
+
+  describe("Deployment", async function() {
+    it("Should fail because of wrong confirmerSetId", async function() {
+      const { block, signers, packedConfirmers, factory } = await loadFixture(createGenesisBlock);
+
+      const goodId = block.confirmerSetId;
+      block.confirmerSetId = utils.solidityKeccak256(["uint8"], ["0x03"]);
+
+      await expect(factory.deploy(block, { gasLimit: 2552000 })).to.be.revertedWith(
+        "Declared confirmer set does not match computed"
+      );
+
+      block.confirmerSetId = goodId;
+    });
+
+    it("Should deploy successfully", async function() {
+      const { block, signers, packedConfirmers, factory } = await loadFixture(createGenesisBlock);
+
+      await expect(factory.deploy(block, { gasLimit: 9552000 })).to.not.be.reverted;
+    });
+
+  })
 
 });
 
