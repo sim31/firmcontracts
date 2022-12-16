@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.8;
 
-import "../node_modules/@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "hardhat/console.sol";
 
 /// Content identifier (hash)
@@ -168,10 +168,11 @@ library FirmChainAbi {
         } else if (
             cmd.cmdId == type(uint8).max - uint8(CommandIds.SET_CONF_THRESHOLD)
         ) {
-            console.log("Setting threshold: %i", uint8(bytes1(cmd.cmdData)));
+            console.log("Setting threshold: %i, len: %i", uint8(bytes1(cmd.cmdData)), cmd.cmdData.length);
             // Could check if sum weight of all confirmers reaches set threshold.
             // But this can be easily checked off-chain by each confirmer.
-            confSet._threshold = abi.decode(cmd.cmdData, (uint8));
+            require(cmd.cmdData.length == 1);
+            confSet._threshold = uint8(bytes1(cmd.cmdData));
             return true;
         }
         return false;
