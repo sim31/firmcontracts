@@ -5,8 +5,6 @@ import "../node_modules/@openzeppelin/contracts/utils/structs/EnumerableSet.sol"
 import "hardhat/console.sol";
 
 /// Content identifier (hash)
-type CId is bytes32;
-type BlockId is bytes32;
 
 using EnumerableSet for EnumerableSet.Bytes32Set;
 
@@ -28,15 +26,15 @@ struct ConfirmerSet {
 
 struct BlockHeader {
     address code;
-    BlockId prevBlockId;
-    CId blockBodyId;
+    bytes32 prevBlockId;
+    bytes32 blockBodyId;
     uint timestamp;
     Signature[] sigs;
 }
 
 struct Block {
     BlockHeader header;
-    CId confirmerSetId;
+    bytes32 confirmerSetId;
     // Data identified by blockDataId
     BlockHeader[] confirmedBl;
     bytes blockData;
@@ -70,9 +68,9 @@ library FirmChainAbi {
 
     function getBlockId(
         BlockHeader calldata header
-    ) public pure returns (BlockId) {
+    ) public pure returns (bytes32) {
         bytes memory encoded = encode(header);
-        return BlockId.wrap(keccak256(encoded));
+        return keccak256(encoded);
     }
 
     function getConfirmerThreshold(
@@ -109,14 +107,12 @@ library FirmChainAbi {
 
     function getConfirmerSetId(
         ConfirmerSet storage confSet
-    ) public view returns (CId) {
+    ) public view returns (bytes32) {
         return
-            CId.wrap(
-                keccak256(
-                    abi.encodePacked(
-                        confSet._threshold,
-                        confSet._confirmers._inner._values
-                    )
+            keccak256(
+                abi.encodePacked(
+                    confSet._threshold,
+                    confSet._confirmers._inner._values
                 )
             );
     }
@@ -124,12 +120,12 @@ library FirmChainAbi {
     function getConfirmerSetId(
         Confirmer[] calldata confirmers,
         uint8 threshold
-    ) public pure returns (CId) {
+    ) public pure returns (bytes32) {
         bytes32[] memory packedConfs = new bytes32[](confirmers.length);
         for (uint i = 0; i < confirmers.length; i++) {
             packedConfs[i] = packConfirmer(confirmers[i]);
         }
-        return CId.wrap(keccak256(abi.encodePacked(threshold, packedConfs)));
+        return keccak256(abi.encodePacked(threshold, packedConfs));
     }
 
     function confirmerAt(
@@ -185,7 +181,7 @@ library FirmChainAbi {
         ConfirmerSet storage confSet,
         Confirmer[] calldata confirmers,
         uint8 threshold
-    ) public returns (CId) {
+    ) public returns (bytes32) {
         for (uint i = 0; i < confirmers.length; i++) {
             confSet._confirmers.add(packConfirmer(confirmers[i]));
         }
@@ -194,7 +190,7 @@ library FirmChainAbi {
     }
 
     function encodeBlockBody(
-        CId confSetId,
+        bytes32 confSetId,
         BlockHeader[] calldata confirmedBl,
         bytes calldata blockData
     )
@@ -209,17 +205,17 @@ library FirmChainAbi {
         );
     }
 
-    function getBlockBodyId(Block calldata bl) public pure returns (CId) {
-        return CId.wrap(keccak256(encodeBlockBody(
+    function getBlockBodyId(Block calldata bl) public pure returns (bytes32) {
+        return keccak256(encodeBlockBody(
             bl.confirmerSetId,
             bl.confirmedBl,
             bl.blockData
-        )));
+        ));
     }
 
     function verifyBlockBodyId(Block calldata bl) public pure returns (bool) {
-        CId realId = getBlockBodyId(bl);
-        return CId.unwrap(bl.header.blockBodyId) == CId.unwrap(realId);
+        bytes32 realId = getBlockBodyId(bl);
+        return bl.header.blockBodyId == realId;
     }
 
     // For signing
@@ -269,13 +265,5 @@ library FirmChainAbi {
     ) public pure returns (bool) {
         require(header.sigs.length > sigIndex);
         return verifyBlockSig(header, header.sigs[sigIndex], signer);
-    }
-
-    function equalCId(CId c1, CId c2) public pure returns (bool) {
-        return CId.unwrap(c1) == CId.unwrap(c2);
-    }
-
-    function equalBIds(BlockId i1, BlockId i2) public pure returns (bool) {
-        return BlockId.unwrap(i1) == BlockId.unwrap(i2);
     }
 }
