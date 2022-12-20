@@ -66,6 +66,47 @@ library FirmChainAbi {
         return abi.encode(cmds);
     }
 
+    function decodeCmds(
+        bytes calldata blockData
+    ) public pure returns (Command[] memory) {
+        Command[] memory cmds = abi.decode(blockData, (Command[]));
+        return cmds;
+    }
+
+    function decodeCmdsMem(
+        bytes memory blockData
+    ) public pure returns (Command[] memory) {
+        Command[] memory cmds = abi.decode(blockData, (Command[]));
+        return cmds;
+        // return new Command[](0);
+    }
+
+    function encodeConfirmer(
+        Confirmer calldata confirmer
+    ) public pure returns (bytes32) {
+        // TODO: which is more efficient?
+        bytes32 r = bytes32(
+            (uint256(uint160(confirmer.addr)) << 8) | confirmer.weight
+        );
+        return r;
+    }
+
+    function encodeConfirmerMem(
+        Confirmer memory confirmer
+    ) public pure returns (bytes32) {
+        // TODO: which is more efficient?
+        bytes32 r = bytes32(
+            (uint256(uint160(confirmer.addr)) << 8) | confirmer.weight
+        );
+        return r;
+    }
+
+    function decodeConfirmer(bytes32 p) public pure returns (Confirmer memory) {
+        uint8 weight = uint8(p[31]);
+        address a = address(uint160(uint256(p) >> 8));
+        return Confirmer(a, weight);
+    }
+
     function getBlockId(
         BlockHeader calldata header
     ) public pure returns (bytes32) {
@@ -79,31 +120,6 @@ library FirmChainAbi {
         return confSet._threshold;
     }
 
-    function packConfirmer(
-        Confirmer calldata confirmer
-    ) public pure returns (bytes32) {
-        // TODO: which is more efficient?
-        bytes32 r = bytes32(
-            (uint256(uint160(confirmer.addr)) << 8) | confirmer.weight
-        );
-        return r;
-    }
-
-    function packConfirmerMem(
-        Confirmer memory confirmer
-    ) public pure returns (bytes32) {
-        // TODO: which is more efficient?
-        bytes32 r = bytes32(
-            (uint256(uint160(confirmer.addr)) << 8) | confirmer.weight
-        );
-        return r;
-    }
-
-    function unpackConfirmer(bytes32 p) public pure returns (Confirmer memory) {
-        uint8 weight = uint8(p[31]);
-        address a = address(uint160(uint256(p) >> 8));
-        return Confirmer(a, weight);
-    }
 
     function getConfirmerSetId(
         ConfirmerSet storage confSet
@@ -123,7 +139,7 @@ library FirmChainAbi {
     ) public pure returns (bytes32) {
         bytes32[] memory packedConfs = new bytes32[](confirmers.length);
         for (uint i = 0; i < confirmers.length; i++) {
-            packedConfs[i] = packConfirmer(confirmers[i]);
+            packedConfs[i] = encodeConfirmer(confirmers[i]);
         }
         return keccak256(abi.encodePacked(threshold, packedConfs));
     }
@@ -133,7 +149,7 @@ library FirmChainAbi {
         uint256 index
     ) public view returns (Confirmer memory) {
         bytes32 v = confSet._confirmers.at(index);
-        return unpackConfirmer(v);
+        return decodeConfirmer(v);
     }
 
     function confirmersLength(
@@ -148,14 +164,11 @@ library FirmChainAbi {
     ) public returns (bool changed) {
         if (cmd.cmdId == type(uint8).max - uint8(CommandIds.ADD_CONFIRMER)) {
             // TODO: remove this
-            Confirmer memory conf = unpackConfirmer(bytes32(cmd.cmdData));
-            console.log("Adding confirmer: %s, %i", conf.addr, conf.weight);
             require(
                 // TODO: Error here for the third confirmer
-                confSet._confirmers.add(packConfirmerMem(conf)),
+                confSet._confirmers.add(bytes32(cmd.cmdData)),
                 "Confirmer already present"
             );
-            console.log("Added confirmer");
             return true;
         } else if (
             cmd.cmdId == type(uint8).max - uint8(CommandIds.REMOVE_CONFIRMER)
@@ -184,7 +197,7 @@ library FirmChainAbi {
         uint8 threshold
     ) public returns (bytes32) {
         for (uint i = 0; i < confirmers.length; i++) {
-            confSet._confirmers.add(packConfirmer(confirmers[i]));
+            confSet._confirmers.add(encodeConfirmer(confirmers[i]));
         }
         confSet._threshold = threshold;
         return getConfirmerSetId(confSet);
@@ -206,15 +219,23 @@ library FirmChainAbi {
         );
     }
 
-    function getBlockBodyId(Block calldata bl) public pure returns (bytes32) {
-        return keccak256(encodeBlockBody(
+    function getBlockBodyId(Block calldata bl) public view returns (bytes32) {
+        bytes memory b = encodeBlockBody(
             bl.confirmerSetId,
             bl.confirmedBl,
             bl.blockData
-        ));
+        );
+        console.log("Encoded block body length: %i", b.length);
+        console.log("Block data length: %i", bl.blockData.length);
+        return keccak256(b);
+        // return keccak256(encodeBlockBody(
+        //     bl.confirmerSetId,
+        //     bl.confirmedBl,
+        //     bl.blockData
+        // ));
     }
 
-    function verifyBlockBodyId(Block calldata bl) public pure returns (bool) {
+    function verifyBlockBodyId(Block calldata bl) public view returns (bool) {
         bytes32 realId = getBlockBodyId(bl);
         return bl.header.blockBodyId == realId;
     }
@@ -234,20 +255,6 @@ library FirmChainAbi {
         return keccak256(encoded);
     }
 
-    function parseCommands(
-        bytes calldata blockData
-    ) public pure returns (Command[] memory) {
-        Command[] memory cmds = abi.decode(blockData, (Command[]));
-        return cmds;
-    }
-
-    function parseCommandsMem(
-        bytes memory blockData
-    ) public pure returns (Command[] memory) {
-        Command[] memory cmds = abi.decode(blockData, (Command[]));
-        return cmds;
-        // return new Command[](0);
-    }
 
     function verifyBlockSig(
         BlockHeader calldata header,

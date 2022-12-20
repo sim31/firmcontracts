@@ -51,11 +51,15 @@ contract FirmChain is IFirmChain {
             "prevBlockId has to be set to 0 in genesis block"
         );
         require(
+            FirmChainAbi.verifyBlockBodyId(genesisBl),
+            "Passed block body does not match header.blockDataId"
+        );
+        require(
             genesisBl.confirmerSetId != 0,
             "Confirmer set has to be set"
         );
         console.log("Parsing commands");
-        Command[] memory cmds = FirmChainAbi.parseCommandsMem(
+        Command[] memory cmds = FirmChainAbi.decodeCmdsMem(
             genesisBl.blockData
         );
 
@@ -247,7 +251,7 @@ contract FirmChain is IFirmChain {
     // so that if confirmers executed executed successfully before confirming,
     // it would execute successfully on any other platform as well.
     function execute(Block calldata bl) internal virtual {
-        Command[] memory cmds = FirmChainAbi.parseCommands(bl.blockData);
+        Command[] memory cmds = FirmChainAbi.decodeCmds(bl.blockData);
         bool confirmersChanged = false;
         for (uint i = 0; i < cmds.length; i++) {
             if (!handleCommand(bl, cmds[i])) {
