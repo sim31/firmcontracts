@@ -20,5 +20,7 @@ interface IFirmChain {
         returns(bool);
 
     /// Fails on failure to finalize
-    function finalize(Block calldata bl) external;
+    function finalize(BlockHeader calldata header) external;
+    function finalizeAndExecute(Block calldata bl) external;
+    function execute(Block calldata bl) external;
 }

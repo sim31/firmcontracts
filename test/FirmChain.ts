@@ -19,6 +19,8 @@ type Command = CommandStruct;
 type Block = BlockStruct;
 type BlockHeader = BlockHeaderStruct;
 
+// TODO: Maybe don't need to separately deploy libs you depend on
+
 describe("FirmChain", function () {
 
   // TODO: Move to separate module

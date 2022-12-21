@@ -20,65 +20,38 @@ struct Confirmer {
 }
 
 struct ConfirmerSet {
-    EnumerableSet.Bytes32Set _confirmers;
     uint8 _threshold;
+    EnumerableSet.Bytes32Set _confirmers;
 }
 
 struct BlockHeader {
-    address code;
     bytes32 prevBlockId;
     bytes32 blockBodyId;
+    bytes32 confirmerSetId;
     uint timestamp;
-    Signature[] sigs;
+    bytes sigs;
+}
+
+struct Call {
+    address addr;
+    bytes   cdata; // Calldata
 }
 
 struct Block {
     BlockHeader header;
-    bytes32 confirmerSetId;
     // Data identified by blockDataId
-    BlockHeader[] confirmedBl;
-    bytes blockData;
-}
-
-struct Command {
-    uint8 cmdId;
-    bytes cmdData;
+    Call[] calls;
 }
 
 library FirmChainAbi {
-    enum CommandIds {
-        ADD_CONFIRMER,
-        REMOVE_CONFIRMER,
-        SET_CONF_THRESHOLD
-    }
-
-    function encode(
-        BlockHeader calldata header
-    ) public pure returns (bytes memory) {
-        return abi.encode(header);
-    }
-
-    function encodeCmd(Command calldata cmd) public pure returns(bytes memory) {
-        return abi.encode(cmd);
-    }
-
-    function encodeCmds(Command[] calldata cmds) public pure returns(bytes memory) {
-        return abi.encode(cmds);
-    }
-
-    function decodeCmds(
-        bytes calldata blockData
-    ) public pure returns (Command[] memory) {
-        Command[] memory cmds = abi.decode(blockData, (Command[]));
-        return cmds;
-    }
-
-    function decodeCmdsMem(
-        bytes memory blockData
-    ) public pure returns (Command[] memory) {
-        Command[] memory cmds = abi.decode(blockData, (Command[]));
-        return cmds;
-        // return new Command[](0);
+    function encode(BlockHeader calldata header) public pure returns (bytes memory) {
+        return abi.encodePacked(
+            header.prevBlockId,
+            header.blockBodyId,
+            header.confirmerSetId,
+            header.timestamp,
+            header.sigs
+        );
     }
 
     function encodeConfirmer(
@@ -120,6 +93,12 @@ library FirmChainAbi {
         return confSet._threshold;
     }
 
+    function setConfirmerThreshold(
+        ConfirmerSet storage confSet,
+        uint8 threshold
+    ) public returns (uint8) {
+        confSet._threshold = threshold;
+    }
 
     function getConfirmerSetId(
         ConfirmerSet storage confSet
@@ -158,38 +137,47 @@ library FirmChainAbi {
         return confSet._confirmers.length();
     }
 
-    function updateConfirmerSet(
-        ConfirmerSet storage confSet,
-        Command memory cmd
-    ) public returns (bool changed) {
-        if (cmd.cmdId == type(uint8).max - uint8(CommandIds.ADD_CONFIRMER)) {
-            // TODO: remove this
-            require(
-                // TODO: Error here for the third confirmer
-                confSet._confirmers.add(bytes32(cmd.cmdData)),
-                "Confirmer already present"
-            );
-            return true;
-        } else if (
-            cmd.cmdId == type(uint8).max - uint8(CommandIds.REMOVE_CONFIRMER)
-        ) {
-            require(
-                confSet._confirmers.remove(bytes32(cmd.cmdData)),
-                "Confirmer is not present"
-            );
-            return true;
-        } else if (
-            cmd.cmdId == type(uint8).max - uint8(CommandIds.SET_CONF_THRESHOLD)
-        ) {
-            console.log("Setting threshold: %i, len: %i", uint8(bytes1(cmd.cmdData)), cmd.cmdData.length);
-            // Could check if sum weight of all confirmers reaches set threshold.
-            // But this can be easily checked off-chain by each confirmer.
-            require(cmd.cmdData.length == 1);
-            confSet._threshold = uint8(bytes1(cmd.cmdData));
-            return true;
-        }
-        return false;
+    function addConfirmer(ConfirmerSet storage confSet, Confirmer calldata conf) public returns(bool) {
+        return confSet._confirmers.add(encodeConfirmer(conf));
     }
+
+    function removeConfirmer(ConfirmerSet storage confSet, Confirmer calldata conf) public returns(bool) {
+        return confSet._confirmers.remove(encodeConfirmer(conf));
+    }
+
+    // TODO: move
+    // function updateConfirmerSet(
+    //     ConfirmerSet storage confSet,
+    //     Command memory cmd
+    // ) public returns (bool changed) {
+    //     if (cmd.cmdId == type(uint8).max - uint8(CommandIds.ADD_CONFIRMER)) {
+    //         // TODO: remove this
+    //         require(
+    //             // TODO: Error here for the third confirmer
+    //             confSet._confirmers.add(bytes32(cmd.cmdData)),
+    //             "Confirmer already present"
+    //         );
+    //         return true;
+    //     } else if (
+    //         cmd.cmdId == type(uint8).max - uint8(CommandIds.REMOVE_CONFIRMER)
+    //     ) {
+    //         require(
+    //             confSet._confirmers.remove(bytes32(cmd.cmdData)),
+    //             "Confirmer is not present"
+    //         );
+    //         return true;
+    //     } else if (
+    //         cmd.cmdId == type(uint8).max - uint8(CommandIds.SET_CONF_THRESHOLD)
+    //     ) {
+    //         console.log("Setting threshold: %i, len: %i", uint8(bytes1(cmd.cmdData)), cmd.cmdData.length);
+    //         // Could check if sum weight of all confirmers reaches set threshold.
+    //         // But this can be easily checked off-chain by each confirmer.
+    //         require(cmd.cmdData.length == 1);
+    //         confSet._threshold = uint8(bytes1(cmd.cmdData));
+    //         return true;
+    //     }
+    //     return false;
+    // }
 
     function setConfirmerSet(
         ConfirmerSet storage confSet,
@@ -203,30 +191,14 @@ library FirmChainAbi {
         return getConfirmerSetId(confSet);
     }
 
-    function encodeBlockBody(
-        bytes32 confSetId,
-        BlockHeader[] calldata confirmedBl,
-        bytes calldata blockData
-    )
-        public
-        pure
-        returns(bytes memory)
-    {
-        return abi.encode(
-            confSetId,
-            confirmedBl,
-            blockData
-        );
+    function encodeBlockBody(Call[] calldata calls) public pure returns(bytes memory) {
+        return abi.encode(calls);
     }
 
-    function getBlockBodyId(Block calldata bl) public view returns (bytes32) {
-        bytes memory b = encodeBlockBody(
-            bl.confirmerSetId,
-            bl.confirmedBl,
-            bl.blockData
-        );
-        console.log("Encoded block body length: %i", b.length);
-        console.log("Block data length: %i", bl.blockData.length);
+    function getBlockBodyId(Block calldata bl) public pure returns (bytes32) {
+        bytes memory b = encodeBlockBody(bl.calls);
+        // console.log("Encoded block body length: %i", b.length);
+        // console.log("Block data length: %i", bl.blockData.length);
         return keccak256(b);
         // return keccak256(encodeBlockBody(
         //     bl.confirmerSetId,
@@ -235,7 +207,7 @@ library FirmChainAbi {
         // ));
     }
 
-    function verifyBlockBodyId(Block calldata bl) public view returns (bool) {
+    function verifyBlockBodyId(Block calldata bl) public pure returns (bool) {
         bytes32 realId = getBlockBodyId(bl);
         return bl.header.blockBodyId == realId;
     }
@@ -246,19 +218,29 @@ library FirmChainAbi {
     ) public pure returns (bytes32) {
         // Like block id but without signatures
         bytes memory encoded = abi.encodePacked(
-            header.code,
             header.prevBlockId,
             header.blockBodyId,
+            header.confirmerSetId,
             header.timestamp
         );
         // TODO: Generate IPFS hash;
         return keccak256(encoded);
     }
 
+    function getSig(BlockHeader calldata header, uint8 sigIndex) public pure returns(Signature memory) {
+        // Signatures are packed one after another in the header
+        uint32 sigStart = sigIndex * (32 + 32 + 8);
+        require(sigStart < header.sigs.length);
+        return Signature(
+            bytes32(header.sigs[sigStart:sigStart+32]),
+            bytes32(header.sigs[sigStart+32:sigStart+64]),
+            uint8(bytes1(header.sigs[sigStart+64]))
+        );
+    }
 
     function verifyBlockSig(
         BlockHeader calldata header,
-        Signature calldata sig,
+        Signature memory sig,
         address signer
     ) public pure returns (bool) {
         bytes32 digest = getBlockDigest(header);
@@ -271,7 +253,7 @@ library FirmChainAbi {
         uint8 sigIndex,
         address signer
     ) public pure returns (bool) {
-        require(header.sigs.length > sigIndex);
-        return verifyBlockSig(header, header.sigs[sigIndex], signer);
+        Signature memory sig = getSig(header, sigIndex);
+        return verifyBlockSig(header, sig, signer);
     }
 }
