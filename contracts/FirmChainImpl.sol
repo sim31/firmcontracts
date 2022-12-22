@@ -98,7 +98,7 @@ library FirmChainImpl {
         address signatory,
         uint8 sigIndex
     ) external returns (bool) {
-        require(header.verifyBlockSig(sigIndex, signatory));
+        require(header.verifySigInBlock(sigIndex, signatory));
         return _confirm(chain, header, signatory);
     }
 

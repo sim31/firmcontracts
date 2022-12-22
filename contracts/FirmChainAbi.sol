@@ -96,7 +96,7 @@ library FirmChainAbi {
     function setConfirmerThreshold(
         ConfirmerSet storage confSet,
         uint8 threshold
-    ) public returns (uint8) {
+    ) public {
         confSet._threshold = threshold;
     }
 
@@ -229,8 +229,8 @@ library FirmChainAbi {
 
     function getSig(BlockHeader calldata header, uint8 sigIndex) public pure returns(Signature memory) {
         // Signatures are packed one after another in the header
-        uint32 sigStart = sigIndex * (32 + 32 + 8);
-        require(sigStart < header.sigs.length);
+        uint32 sigStart = sigIndex * (32 + 32 + 1);
+        require(sigStart + (32+32+1) <= header.sigs.length, "sigIndex too big");
         return Signature(
             bytes32(header.sigs[sigStart:sigStart+32]),
             bytes32(header.sigs[sigStart+32:sigStart+64]),
@@ -248,7 +248,7 @@ library FirmChainAbi {
         return sg == signer;
     }
 
-    function verifyBlockSig(
+    function verifySigInBlock(
         BlockHeader calldata header,
         uint8 sigIndex,
         address signer
