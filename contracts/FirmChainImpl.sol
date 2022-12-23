@@ -4,6 +4,27 @@ pragma solidity ^0.8.8;
 import "./FirmChainAbi.sol";
 import "hardhat/console.sol";
 
+struct Link {
+    address confirmer;
+    bytes32 blockId;
+}
+
+enum ConfirmerStatus {
+    UNINITIALIZED,
+    INITIALIZED,
+    FAULTY
+}
+
+enum ConfirmerOpId {
+    ADD,
+    REMOVE
+}
+
+struct ConfirmerOp {
+    ConfirmerOpId opId;
+    Confirmer conf;
+}
+
 library FirmChainImpl {
     event ByzantineFault(address source, bytes32 forkPoint);
     event WrongConfirmerSetId(bytes32 blockId);
@@ -14,17 +35,6 @@ library FirmChainImpl {
     using FirmChainAbi for ConfirmerSet;
     using FirmChainAbi for Block;
     using FirmChainAbi for BlockHeader;
-
-    struct Link {
-        address confirmer;
-        bytes32 blockId;
-    }
-
-    enum ConfirmerStatus {
-        UNINITIALIZED,
-        INITIALIZED,
-        FAULTY
-    }
 
     struct FirmChain {
         // TODO: Expose some of these variables with getters?
@@ -49,14 +59,11 @@ library FirmChainImpl {
         bool _fault;
     }
 
-    // TODO: Maybe initialize confirmers without doing external calls
-    //  * You will most likely have multiple confirmers and making calls for every one of them is inneficient;
-    //  * extcodesize does not work when being called from constructor (you use it to check if contract to which the call is addressed exists)
-    //  * simply check that no external calls are made in constructor (so that you don't need to change _executeNext)
-    function init(
+    // Expected to be called by constructor of the IFirmChain
+    function construct(
         FirmChain storage chain,
         Block calldata genesisBl,
-        Confirmer[] calldata confirmers,
+        ConfirmerOp[] calldata confirmerOps,
         uint8 threshold
     ) 
         external 
@@ -79,7 +86,11 @@ library FirmChainImpl {
             "Confirmer set has to be set"
         );
 
+        _updateConfirmerSet(chain, confirmerOps, threshold);
+
         bytes32 bId = FirmChainAbi.getBlockId(genesisBl.header);
+        // IMPORTANT: You should not have external calls to yourself here
+        // NOTE: if you delete this call here, then you should do a check on confirmerSetId elsewhere
         _execute(chain, genesisBl, bId);
 
         chain._backlinks[packedLink(address(this), bId)] = "1";
@@ -120,15 +131,23 @@ library FirmChainImpl {
 
     function updateConfirmerSet(
         FirmChain storage chain,
-        Confirmer[] calldata toRemove,
-        Confirmer[] calldata toAdd,
+        ConfirmerOp[] calldata ops,
         uint8 threshold
     ) external fromSelf {
-        for (uint i = 0; i < toRemove.length; i++) {
-            chain._confirmerSet.removeConfirmer(toRemove[i]);
-        }
-        for (uint i = 0; i < toAdd.length; i++) {
-            chain._confirmerSet.addConfirmer(toAdd[i]);
+        _updateConfirmerSet(chain, ops, threshold);
+    }
+
+    function _updateConfirmerSet(
+        FirmChain storage chain,
+        ConfirmerOp[] calldata ops,
+        uint8 threshold
+    ) private {
+        for (uint i = 0; i < ops.length; i++) {
+            if (ops[i].opId == ConfirmerOpId.REMOVE) {
+                chain._confirmerSet.removeConfirmer(ops[i].conf);
+            } else if (ops[i].opId == ConfirmerOpId.ADD) {
+                chain._confirmerSet.addConfirmer(ops[i].conf);
+            }
         }
         chain._confirmerSet.setConfirmerThreshold(threshold);
 
@@ -250,8 +269,12 @@ library FirmChainImpl {
         // call to perform these operations failed above. Either way next block won't
         // be finalizible until this is resolved (because _finalize requires previous block to be _head, which is only set below this require).
         // Note that it is not resolvable in the first case (bad declared confirmerSetId).
+        if (chain._confirmerSetId != bl.header.confirmerSetId) {
+            console.log("chain confId: ", uint256(chain._confirmerSetId));
+            console.log("header confId: ", uint256(bl.header.confirmerSetId));
+        }
         require(
-            chain._confirmerSetId != bl.header.confirmerSetId,
+            chain._confirmerSetId == bl.header.confirmerSetId,
             "Confirmer set computed does not match declared"
         );
 

@@ -14,26 +14,36 @@ import {
   BlockHeaderStructOutput,
   CallStruct,
   SignatureStruct
-} from "../typechain-types/contracts/FirmChainAbi";
+} from "../typechain-types/FirmChainAbi";
 import { BytesLike, BigNumberish, utils } from "ethers";
 import { MinEthersFactory, PromiseOrValue } from "../typechain-types/common";
 import { EthGasReporterConfig } from "hardhat-gas-reporter/dist/src/types";
 
 chai.use(chaiSubset);
 
-type Confirmer = ConfirmerStruct;
-type Block = BlockStruct;
-type BlockHeader = BlockHeaderStruct;
-type Call = CallStruct;
-type Signature = SignatureStruct;
+export type Confirmer = ConfirmerStruct;
+export type Block = BlockStruct;
+export type BlockHeader = BlockHeaderStruct;
+export type Call = CallStruct;
+export type Signature = SignatureStruct;
+
+export const ZeroId = ethers.constants.HashZero;
+export const ZeroAddr = ethers.constants.AddressZero;
 
 export function encodeBlockBody(calls: readonly Call[]): BytesLike {
   const coder = utils.defaultAbiCoder;
   return coder.encode(["tuple(address addr, bytes cdata)[]"], [calls]);
 }
 
-export function getBlockBodyId(block: Block): string {
-  const encBody = encodeBlockBody(block.calls);
+export function getBlockBodyId(calls: Call[]): string;
+export function getBlockBodyId(block: Block): string;
+export function getBlockBodyId(callsOrBlock: Block | Call[]): string {
+  let encBody: BytesLike =  ""; 
+  if (Array.isArray(callsOrBlock)) {
+    encBody = encodeBlockBody(callsOrBlock);
+  } else {
+    encBody = encodeBlockBody(callsOrBlock.calls);
+  }
   return utils.keccak256(encBody);
 }
 
@@ -142,6 +152,15 @@ export async function deployAbi() {
   let abiLib;
   expect(abiLib = await fchainAbiFactory.deploy()).to.not.be.reverted;
   
+  const signers = await ethers.getSigners();
+
+  return { signers, abiLib };
+}
+
+export async function deployAbiProxy() {
+
+  const { signers, abiLib } = await loadFixture(deployAbi);
+
   const abiProxyFactory = await ethers.getContractFactory(
     "FirmChainAbiProxy",
     {
@@ -153,20 +172,19 @@ export async function deployAbi() {
   let abiProxy;
   expect(abiProxy = await abiProxyFactory.deploy()).to.not.be.reverted;
 
-  const signers = await ethers.getSigners();
-
   return { abiLib, abiProxy, signers };
+
 }
 
 // Checks if encoding performed as expected by the frontend
-export default describe("FirmChainAbi", function () {
+describe("FirmChainAbi", function () {
   
   it("Should deploy FirmChainAbi", async function() {
-    const fchainAbi = await loadFixture(deployAbi);
+    const fchainAbi = await loadFixture(deployAbiProxy);
   });
 
   it("Should encode a block header without sigs", async function() {
-    const { abiLib, abiProxy } = await loadFixture(deployAbi);
+    const { abiLib, abiProxy } = await loadFixture(deployAbiProxy);
 
     const header = await randomBlockHeaderSig1();
     header.sigs = [];
@@ -177,7 +195,7 @@ export default describe("FirmChainAbi", function () {
   });
 
   it("Should encode a block header with sig", async function() {
-    const { abiLib, abiProxy } = await loadFixture(deployAbi);
+    const { abiLib, abiProxy } = await loadFixture(deployAbiProxy);
 
     const header = await randomBlockHeaderSig1();
 
@@ -187,7 +205,7 @@ export default describe("FirmChainAbi", function () {
   });
 
   it("Should encode a block header with sig", async function() {
-    const { abiLib, abiProxy } = await loadFixture(deployAbi);
+    const { abiLib, abiProxy } = await loadFixture(deployAbiProxy);
 
     const header = await randomBlockHeaderSig3();
 
@@ -197,7 +215,7 @@ export default describe("FirmChainAbi", function () {
   });
 
   it("Should encode confirmer", async function() {
-    const { abiLib, abiProxy, signers } = await loadFixture(deployAbi);
+    const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
 
     const conf: Confirmer = {
       addr: signers[0].address,
@@ -210,7 +228,7 @@ export default describe("FirmChainAbi", function () {
   });
 
   it("Should decode confirmer", async function() {
-    const { abiLib, abiProxy, signers } = await loadFixture(deployAbi);
+    const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
 
     const conf: Confirmer = {
       addr: signers[1].address,
@@ -225,7 +243,7 @@ export default describe("FirmChainAbi", function () {
   });
 
   it("Should compute block id", async function() {
-    const { abiLib, abiProxy, signers } = await loadFixture(deployAbi);
+    const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
 
     const header = await randomBlockHeaderSig3();
     const expectedId = getBlockId(header);
@@ -234,7 +252,7 @@ export default describe("FirmChainAbi", function () {
   });
 
   it("Should compute confirmer set id", async function() {
-    const { abiLib, abiProxy, signers } = await loadFixture(deployAbi);
+    const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
 
     const confs: Confirmer[] = [
       {
@@ -259,7 +277,7 @@ export default describe("FirmChainAbi", function () {
   });
 
   it("Should encode block body", async function() {
-    const { abiLib, abiProxy, signers } = await loadFixture(deployAbi);
+    const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
 
     const calls: Call[] = [
       {
@@ -284,7 +302,7 @@ export default describe("FirmChainAbi", function () {
   });
 
   it("Should get block body id", async function() {
-    const { abiLib, abiProxy, signers } = await loadFixture(deployAbi);
+    const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
 
     const calls: Call[] = [
       {
@@ -313,7 +331,7 @@ export default describe("FirmChainAbi", function () {
 
 
   it("Should verify block body id to be correct", async function() {
-    const { abiLib, abiProxy, signers } = await loadFixture(deployAbi);
+    const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
 
     const calls: Call[] = [
       {
@@ -342,7 +360,7 @@ export default describe("FirmChainAbi", function () {
   });
 
   it("Should verify block body id to be incorrect", async function() {
-    const { abiLib, abiProxy, signers } = await loadFixture(deployAbi);
+    const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
 
     const calls: Call[] = [
       {
@@ -368,7 +386,7 @@ export default describe("FirmChainAbi", function () {
   });
 
   it("Should compute block digest", async function() {
-    const { abiLib, abiProxy, signers } = await loadFixture(deployAbi);
+    const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
 
     const header = await randomBlockHeaderSig1();
     const expected = getBlockDigest(header);
@@ -377,7 +395,7 @@ export default describe("FirmChainAbi", function () {
   });
 
   it("Should get the right sig", async function() {
-    const { abiLib, abiProxy, signers } = await loadFixture(deployAbi);
+    const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
 
     const header = await randomBlockHeaderSig1();
     const sig: Signature = { r: randomBytes32Hex(), s: randomBytes32Hex(), v: 8 };
@@ -403,7 +421,7 @@ export default describe("FirmChainAbi", function () {
   });
 
   it("Should revert on attempt to get non-existent sig", async function() {
-    const { abiLib, abiProxy, signers } = await loadFixture(deployAbi);
+    const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
 
     const header = await randomBlockHeaderSig3();
 
@@ -411,7 +429,7 @@ export default describe("FirmChainAbi", function () {
   });
 
   it("Should verify that block signature is invalid", async function() {
-    const { abiLib, abiProxy, signers } = await loadFixture(deployAbi);
+    const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
 
     const header = await randomBlockHeaderSig3();
 
@@ -420,7 +438,7 @@ export default describe("FirmChainAbi", function () {
   });
 
   it("Should verify that block signature is valid", async function() {
-    const { abiLib, abiProxy, signers } = await loadFixture(deployAbi);
+    const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
 
     const header = await randomBlockHeaderSig1();
     const digest = getBlockDigest(header);

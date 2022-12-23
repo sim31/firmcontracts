@@ -2,8 +2,8 @@
 pragma solidity ^0.8.8;
 
 import "./IFirmChain.sol";
-import "./FirmChainAbi.sol";
 import "./FirmChainImpl.sol";
+import "./FirmChainAbi.sol";
 import "hardhat/console.sol";
 
 contract FirmChain is IFirmChain {
@@ -16,11 +16,10 @@ contract FirmChain is IFirmChain {
 
     constructor(
         Block memory genesisBl,
-        Confirmer[] memory confirmers,
+        ConfirmerOp[] memory confirmerOps,
         uint8 threshold
-
     ) {
-        _impl.init(genesisBl, confirmers, threshold);
+        _impl.construct(genesisBl, confirmerOps, threshold);
     }
 
     function confirm(BlockHeader calldata header) external returns (bool) {
@@ -49,10 +48,9 @@ contract FirmChain is IFirmChain {
     }
 
     function updateConfirmerSet(
-        Confirmer[] calldata toRemove,
-        Confirmer[] calldata toAdd,
+        ConfirmerOp[] calldata ops,
         uint8 threshold
     ) external {
-        _impl.updateConfirmerSet(toRemove, toAdd, threshold);
+        _impl.updateConfirmerSet(ops, threshold);
     }
 }
