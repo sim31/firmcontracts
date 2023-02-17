@@ -1,5 +1,5 @@
 {
-  "name": "firmament-contracts",
+  "name": "firmcontracts",
   "version": "0.1.0",
   "description": "Smart contracts implementing validators of human-speed blockchains",
   "main": "index.js",
@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sim31/firmament-contracts.git"
+    "url": "git+https://github.com/sim31/firmcontracts.git"
   },
   "keywords": [
     "blockchain",
@@ -18,9 +18,9 @@
   "author": "sim31",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/sim31/firmament-contracts/issues"
+    "url": "https://github.com/sim31/firmcontracts/issues"
   },
-  "homepage": "https://github.com/sim31/firmament-contracts#readme",
+  "homepage": "https://github.com/sim31/firmcontracts#readme",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^2.0.0",
     "@types/chai-subset": "^1.3.3",
