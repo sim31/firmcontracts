@@ -4,7 +4,8 @@
   "description": "Smart contracts implementing validators of human-speed blockchains",
   "main": "index.js",
   "scripts": {
-    "test": "test"
+    "test": "test",
+    "prepare": "npx hardhat compile && npx hardhat test"
   },
   "repository": {
     "type": "git",
