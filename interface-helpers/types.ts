@@ -19,6 +19,8 @@ export type Call = CallStruct;
 export type Signature = SignatureStruct;
 export type ConfirmerOp = ConfirmerOpStruct;
 
+export type ConfirmerOutput = ConfirmerStructOutput;
+
 export const ZeroId = ethers.constants.HashZero;
 export const ZeroAddr = ethers.constants.AddressZero;
 
