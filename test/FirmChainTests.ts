@@ -1,23 +1,11 @@
 import { time, loadFixture } from "@nomicfoundation/hardhat-network-helpers";
-import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 
-import { ConfirmerOpStruct } from "../typechain-types/FirmChain";
-import { BytesLike, BigNumberish, utils } from "ethers";
-
 import * as abi from "./FirmChainAbiTests";
-
-type ConfirmerOp = ConfirmerOpStruct;
-
-const ConfirmerOpId = {
-  Add: 0,
-  Remove: 1
-} as const;
-
-function createAddConfirmerOps(confs: abi.Confirmer[]): ConfirmerOp[] {
-  return confs.map(conf => { return {opId:  ConfirmerOpId.Add, conf} });
-}
+import { Block, BlockHeader, Call, Confirmer, ConfirmerOp, ZeroId } from "../interface-helpers/types";
+import { getBlockBodyId, getConfirmerSetId } from "../interface-helpers/abi";
+import { createAddConfirmerOps } from "../interface-helpers/firmchain";
 
 describe("FirmChain", function () {
   async function deployImplLib() {
@@ -46,7 +34,7 @@ describe("FirmChain", function () {
     );
 
     // TODO: need to create my own signers (so that I can sign block digests not just eth txs)
-    const confs: abi.Confirmer[] = [
+    const confs: Confirmer[] = [
       {
         addr: signers[0].address,
         weight: 1
@@ -65,21 +53,21 @@ describe("FirmChain", function () {
       }
     ];
     const threshold = 3;
-    const confSetId = await abi.getConfirmerSetId(confs, threshold);
+    const confSetId = await getConfirmerSetId(confs, threshold);
     const confOps: ConfirmerOp[] = createAddConfirmerOps(confs);
 
-    const calls: abi.Call[] = []
-    const bodyId = abi.getBlockBodyId(calls);
+    const calls: Call[] = []
+    const bodyId = getBlockBodyId(calls);
 
-    const header: abi.BlockHeader = {
-      prevBlockId: abi.ZeroId,
+    const header: BlockHeader = {
+      prevBlockId: ZeroId,
       blockBodyId: bodyId,
       confirmerSetId: confSetId,
       timestamp: await time.latest(),
       sigs: []
     };
 
-    const genesisBl: abi.Block = {
+    const genesisBl: Block = {
       header,
       calls
     };

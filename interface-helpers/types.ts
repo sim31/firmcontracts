@@ -1,0 +1,28 @@
+import {
+  ConfirmerStruct,
+  ConfirmerStructOutput,
+  BlockStruct,
+  BlockStructOutput,
+  BlockHeaderStruct,
+  BlockHeaderStructOutput,
+  CallStruct,
+  SignatureStruct
+} from "../typechain-types/FirmChainAbi";
+import { ethers } from "ethers";
+import { ConfirmerOpStruct } from "../typechain-types/FirmChain";
+
+
+export type Confirmer = ConfirmerStruct;
+export type Block = BlockStruct;
+export type BlockHeader = BlockHeaderStruct;
+export type Call = CallStruct;
+export type Signature = SignatureStruct;
+export type ConfirmerOp = ConfirmerOpStruct;
+
+export const ZeroId = ethers.constants.HashZero;
+export const ZeroAddr = ethers.constants.AddressZero;
+
+export const ConfirmerOpId = {
+  Add: 0,
+  Remove: 1
+} as const;

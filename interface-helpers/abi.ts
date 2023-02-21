@@ -1,0 +1,103 @@
+import { BytesLike, utils, ethers } from 'ethers';
+import {
+  Confirmer, Block, BlockHeader, Call, Signature, ZeroAddr, ZeroId,
+
+} from './types';
+
+export function encodeBlockBody(calls: readonly Call[]): BytesLike {
+  const coder = utils.defaultAbiCoder;
+  return coder.encode(["tuple(address addr, bytes cdata)[]"], [calls]);
+}
+
+export function getBlockBodyId(calls: Call[]): string;
+export function getBlockBodyId(block: Block): string;
+export function getBlockBodyId(callsOrBlock: Block | Call[]): string {
+  let encBody: BytesLike =  ""; 
+  if (Array.isArray(callsOrBlock)) {
+    encBody = encodeBlockBody(callsOrBlock);
+  } else {
+    encBody = encodeBlockBody(callsOrBlock.calls);
+  }
+  return utils.keccak256(encBody);
+}
+
+// TODO: Test that returned bytes.length is 66
+export async function encodeConfirmer(conf: Confirmer): Promise<BytesLike> {
+  const bytes = utils.hexConcat(
+    [utils.zeroPad("0x00", 11),
+    await Promise.resolve(conf.addr),
+    [Number((await Promise.resolve(conf.weight)).toString())]
+  ]);
+  return bytes;
+}
+
+export async function getConfirmerSetId(confs: Confirmer[], threshold: number): Promise<string> {
+  let packedConfs: BytesLike[] = [];
+  for (const c of confs) {
+    packedConfs.push(await encodeConfirmer(c));
+  }
+  return utils.solidityKeccak256(["uint8", "bytes32[]"], [threshold, packedConfs]);
+}
+
+export function randomBytes32() {
+  return utils.randomBytes(32);
+}
+
+export function randomBytes32Hex(): string {
+  return utils.hexlify(randomBytes32());
+}
+
+export function randomBytesHex(n: number): string {
+  return utils.hexlify(utils.randomBytes(n));
+}
+
+export function randomSig() {
+  return utils.randomBytes(72);
+}
+
+export async function packSig(sig: Signature): Promise<BytesLike> {
+  const v = await Promise.resolve(sig.v);
+  return utils.concat([await Promise.resolve(sig.r), await Promise.resolve(sig.s), utils.hexlify(v)]);
+}
+
+export async function setBlockSignatures(header: BlockHeader, sigs: Signature[]): Promise<void> {
+  let packedSigs: BytesLike[] = [];
+  for (const sig of sigs) {
+    packedSigs.push(await packSig(sig));
+  }
+  header.sigs = utils.concat(packedSigs);
+}
+
+
+// TODO: This might not work if you pass promises as values in header
+export function encodeHeader(header: BlockHeader) {
+  return utils.solidityPack(
+    ["bytes32", "bytes32", "bytes32", "uint", "bytes"],
+    [
+      header.prevBlockId,
+      header.blockBodyId,
+      header.confirmerSetId,
+      header.timestamp,
+      header.sigs
+    ]
+  );
+}
+
+// TODO: This might not work if you pass promises as values in header
+export function getBlockDigest(header: BlockHeader): string {
+  const encoded = utils.solidityPack(
+    ["bytes32", "bytes32", "bytes32", "uint"],
+    [
+      header.prevBlockId,
+      header.blockBodyId,
+      header.confirmerSetId,
+      header.timestamp
+    ]
+  );
+
+  return utils.keccak256(encoded);
+}
+
+export function getBlockId(header: BlockHeader) {
+  return utils.keccak256(encodeHeader(header));
+}
