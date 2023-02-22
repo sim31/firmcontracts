@@ -1,12 +1,26 @@
 import { time, loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { utils } from "ethers";
+import { utils, Wallet } from "ethers";
 
 import * as abi from "./FirmChainAbiTests";
-import { Block, BlockHeader, Call, Confirmer, ConfirmerOp, ZeroId } from "../interface-helpers/types";
-import { decodeConfirmer, getBlockBodyId, getBlockId, getConfirmerSetId, normalizeHexStr } from "../interface-helpers/abi";
+import { Block, BlockHeader, Message, Confirmer, ConfirmerOp, ZeroId } from "../interface-helpers/types";
+import { decodeConfirmer, getBlockBodyId, getBlockId, getConfirmerSetId, normalizeHexStr, sign } from "../interface-helpers/abi";
 import { createAddConfirmerOps } from "../interface-helpers/firmchain";
+import { FirmChain } from "../typechain-types";
+
+export async function extConfirmByAll(chain: FirmChain, wallets: Wallet[], header: BlockHeader) {
+  for (const [index, wallet] of wallets.entries()) {
+    await expect(chain.extConfirm(header, wallet.address, index)).to.not.be.reverted;
+  }
+}
+
+export async function checkConfirmations(chain: FirmChain, wallets: Wallet[], header: BlockHeader) {
+  const blockId = getBlockId(header);
+  for (const wallet of wallets) {
+    expect(await chain.isConfirmedBy(blockId, wallet.address)).to.be.true;
+  }
+}
 
 describe("FirmChain", function () {
   async function deployImplLib() {
@@ -25,7 +39,8 @@ describe("FirmChain", function () {
   }
 
   async function deployChain() {
-    const { signers, implLib, abiLib } = await loadFixture(deployImplLib);
+    const { implLib, abiLib } = await loadFixture(deployImplLib);
+    const wallets = await abi.createWallets();
 
     const factory = await ethers.getContractFactory(
       "FirmChain",
@@ -37,19 +52,19 @@ describe("FirmChain", function () {
     // TODO: need to create my own signers (so that I can sign block digests not just eth txs)
     const confs: Confirmer[] = [
       {
-        addr: normalizeHexStr(signers[0].address),
+        addr: normalizeHexStr(wallets[0].address),
         weight: 1
       },
       {
-        addr: normalizeHexStr(signers[1].address),
+        addr: normalizeHexStr(wallets[1].address),
         weight: 1
       },
       {
-        addr: normalizeHexStr(signers[2].address),
+        addr: normalizeHexStr(wallets[2].address),
         weight: 1
       },
       {
-        addr: normalizeHexStr(signers[3].address),
+        addr: normalizeHexStr(wallets[3].address),
         weight: 1
       }
     ];
@@ -57,8 +72,8 @@ describe("FirmChain", function () {
     const confSetId = await getConfirmerSetId(confs, threshold);
     const confOps: ConfirmerOp[] = createAddConfirmerOps(confs);
 
-    const calls: Call[] = []
-    const bodyId = getBlockBodyId(calls);
+    const msgs: Message[] = []
+    const bodyId = getBlockBodyId(msgs);
 
     const header: BlockHeader = {
       prevBlockId: ZeroId,
@@ -70,7 +85,7 @@ describe("FirmChain", function () {
 
     const genesisBl: Block = {
       header,
-      calls
+      msgs
     };
 
 
@@ -78,7 +93,15 @@ describe("FirmChain", function () {
     await expect(deployCall).to.not.be.reverted;
     const chain = await deployCall;
 
-    return { signers, chain, confs, genesisBl, threshold, implLib, abiLib };
+    const nextHeader: BlockHeader = {
+      prevBlockId: getBlockId(genesisBl.header),
+      blockBodyId: bodyId,
+      confirmerSetId: genesisBl.header.confirmerSetId,
+      timestamp: await time.latest(),
+      sigs: []
+    };
+
+    return { wallets, chain, confs, genesisBl, nextHeader, threshold, implLib, abiLib };
   }
 
   describe("Deployment", async function() {
@@ -91,7 +114,7 @@ describe("FirmChain", function () {
     })
 
     it("Should set confirmers", async function() {
-      const { signers, chain, confs } = await loadFixture(deployChain);
+      const { chain, confs } = await loadFixture(deployChain);
 
       const confBytes = await chain.getConfirmers();      
 
@@ -118,29 +141,90 @@ describe("FirmChain", function () {
 
   });
 
-//   describe("Deployment", async function() {
-//     it("Should fail because of wrong confirmerSetId", async function() {
-//       const { block, signers, packedConfirmers, factory } = await loadFixture(createGenesisBlock);
+  describe("isConfirmedBy", async function() {
+    it("Should return false for unconfirmed blocks", async function() {
+      const { chain, wallets, confs, genesisBl } = await loadFixture(deployChain);
 
-//       const goodId = block.confirmerSetId;
-//       block.confirmerSetId = utils.solidityKeccak256(["uint8"], ["0x03"]);
+      const msgs: Message[] = []
+      const bodyId = getBlockBodyId(msgs);
+      const header: BlockHeader = {
+        prevBlockId: getBlockId(genesisBl.header),
+        blockBodyId: bodyId,
+        confirmerSetId: genesisBl.header.confirmerSetId,
+        timestamp: await time.latest(),
+        sigs: []
+      };
+      let blockId = getBlockId(header);
 
-//       await expect(factory.deploy(block, { gasLimit: 2552000 })).to.be.revertedWith(
-//         "Declared confirmer set does not match computed"
-//       );
+      expect(await chain.isConfirmedBy(blockId, confs[0].addr)).to.be.false;
+    })
+  })
 
-//       block.confirmerSetId = goodId;
-//     });
+  describe("extConfirm", async function() {
+    it("Should fail if block has no signatures", async function() {
+      const { chain, wallets, nextHeader } = await loadFixture(deployChain);
 
-//     it("Should deploy successfully", async function() {
-//       const { block, signers, packedConfirmers, factory } = await loadFixture(createGenesisBlock);
+      const confirmCall = chain.extConfirm(nextHeader, wallets[0].address, 0);
+      await expect(confirmCall).to.be.reverted;
+    })
 
-//       await expect(factory.deploy(block, { gasLimit: 9552000 })).to.not.be.reverted;
-//     });
+    it("Should fail if wrong address is provided", async function() {
+      const { chain, wallets, nextHeader } = await loadFixture(deployChain);
 
-//   })
+      const header = await sign(wallets[0], nextHeader);
 
-// });
+      const confirmCall = chain.extConfirm(header, wallets[1].address, 0);
+      await expect(confirmCall).to.be.reverted;
+    });
+
+    it("Should succeed if signed and matching address is provided", async function() {
+      const { chain, wallets, nextHeader } = await loadFixture(deployChain);
+
+      const header = await sign(wallets[0], nextHeader);
+
+      const confirmCall = chain.extConfirm(header, wallets[0].address, 0);
+      await expect(confirmCall).to.not.be.reverted;
+    })
+
+    it("Should record confirmation", async function() {
+      const { chain, wallets, nextHeader } = await loadFixture(deployChain);
+
+      const header = await sign(wallets[0], nextHeader);
+
+      const confirmCall = chain.extConfirm(header, wallets[0].address, 0);
+      await expect(confirmCall).to.not.be.reverted;
+
+      const blockId = getBlockId(header);
+
+      expect(await chain.isConfirmedBy(blockId, wallets[0].address)).to.be.true;
+    });
+
+    it("Should record multiple confirmations", async function() {
+      const { chain, wallets, nextHeader } = await loadFixture(deployChain);
+
+      const confWallets = [wallets[0], wallets[1], wallets[2]];
+      const header = await sign(confWallets, nextHeader);
+
+      await extConfirmByAll(chain, confWallets, header);
+
+      await checkConfirmations(chain, confWallets, header);
+      expect(await chain.isConfirmedBy(getBlockId(header), wallets[4].address)).to.be.false;
+    });
+
+    it("Should fail if wrong signature index is provided", async function() {
+      const { chain, wallets, nextHeader } = await loadFixture(deployChain);
+
+      const confWallets = [wallets[0], wallets[1], wallets[2]];
+      const header = await sign(confWallets, nextHeader);
+
+      await expect(chain.extConfirm(header, wallets[0].address, 1)).to.be.reverted;
+      await expect(chain.extConfirm(header, wallets[0].address, 2)).to.be.reverted;
+      await expect(chain.extConfirm(header, wallets[1].address, 0)).to.be.reverted;
+      await expect(chain.extConfirm(header, wallets[1].address, 2)).to.be.reverted;
+      await expect(chain.extConfirm(header, wallets[1].address, 3)).to.be.reverted;
+      await expect(chain.extConfirm(header, wallets[1].address, 4)).to.be.reverted;
+    });
+  });
 
 })
 

@@ -65,4 +65,12 @@ contract FirmChain is IFirmChain {
     function getHead() external view returns (bytes32) {
         return _impl.getHead();
     }
+
+    function isConfirmedBy(bytes32 blockId, address confirmer) public view returns (bool) {
+        return _impl.isConfirmedBy(blockId, confirmer);
+    }
+
+    function isFinalized(bytes32 blockId) public view returns (bool) {
+        return _impl.isFinalized(blockId);
+    }
 }

@@ -32,7 +32,7 @@ struct BlockHeader {
     bytes sigs;
 }
 
-struct Call {
+struct Message {
     address addr;
     bytes   cdata; // Calldata
 }
@@ -40,7 +40,7 @@ struct Call {
 struct Block {
     BlockHeader header;
     // Data identified by blockDataId
-    Call[] calls;
+    Message[] msgs;
 }
 
 library FirmChainAbi {
@@ -197,12 +197,12 @@ library FirmChainAbi {
         return getConfirmerSetId(confSet);
     }
 
-    function encodeBlockBody(Call[] calldata calls) public pure returns(bytes memory) {
-        return abi.encode(calls);
+    function encodeBlockBody(Message[] calldata msgs) public pure returns(bytes memory) {
+        return abi.encode(msgs);
     }
 
     function getBlockBodyId(Block calldata bl) public pure returns (bytes32) {
-        bytes memory b = encodeBlockBody(bl.calls);
+        bytes memory b = encodeBlockBody(bl.msgs);
         // console.log("Encoded block body length: %i", b.length);
         // console.log("Block data length: %i", bl.blockData.length);
         return keccak256(b);

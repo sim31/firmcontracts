@@ -2,9 +2,10 @@ import { time, loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import chai, { expect } from "chai";
 import chaiSubset from "chai-subset";
 import { ethers } from "hardhat";
-import { utils } from 'ethers';
-import { encodeBlockBody, encodeConfirmer, encodeHeader, getBlockBodyId, getBlockDigest, getBlockId, getConfirmerSetId, normalizeHexStr, randomBytes32, randomBytes32Hex, randomSig, setBlockSignatures } from "../interface-helpers/abi";
-import { Block, BlockHeader, Call, Confirmer, Signature } from "../interface-helpers/types";
+import { utils, Wallet } from 'ethers';
+import { encodeBlockBody, encodeConfirmer, encodeHeader, getBlockBodyId, getBlockDigest, getBlockId, getConfirmerSetId, normalizeHexStr, randomBytes32, randomBytes32Hex, randomSig, setBlockSignatures, sign } from "../interface-helpers/abi";
+import { Block, BlockHeader, Message, Confirmer, Signature } from "../interface-helpers/types";
+import { MinEthersFactory } from "../typechain-types/common";
 
 chai.use(chaiSubset);
 
@@ -26,6 +27,14 @@ export async function randomBlockHeaderSig3(): Promise<BlockHeader> {
     timestamp: await time.latest(),
     sigs: utils.concat([randomSig(), randomSig(), randomSig()])
   }
+}
+
+export async function createWallets(count: number = 6) {
+  const wallets: Wallet[] = [];
+  for (let i = 0; i < count; i++) {
+    wallets.push(await ethers.Wallet.createRandom());
+  }
+  return wallets;
 }
 
 export async function deployAbi() {
@@ -160,7 +169,7 @@ describe("FirmChainAbi", function () {
   it("Should encode block body", async function() {
     const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
 
-    const calls: Call[] = [
+    const msgs: Message[] = [
       {
         addr: signers[3].address,
         cdata: utils.randomBytes(2)
@@ -175,9 +184,9 @@ describe("FirmChainAbi", function () {
       }
     ];
 
-    const expected = encodeBlockBody(calls);
+    const expected = encodeBlockBody(msgs);
 
-    const encoded = await abiProxy.encodeBlockBody(calls);
+    const encoded = await abiProxy.encodeBlockBody(msgs);
 
     expect(encoded).to.equal(expected);
   });
@@ -185,7 +194,7 @@ describe("FirmChainAbi", function () {
   it("Should get block body id", async function() {
     const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
 
-    const calls: Call[] = [
+    const msgs: Message[] = [
       {
         addr: signers[3].address,
         cdata: utils.randomBytes(2)
@@ -202,10 +211,10 @@ describe("FirmChainAbi", function () {
 
     const block: Block = {
       header: await randomBlockHeaderSig1(),
-      calls
+      msgs
     };
 
-    const encoded = await abiProxy.encodeBlockBody(calls);
+    const encoded = await abiProxy.encodeBlockBody(msgs);
 
     expect(await abiProxy.getBlockBodyId(block)).to.equal(utils.keccak256(encoded));
   });
@@ -214,7 +223,7 @@ describe("FirmChainAbi", function () {
   it("Should verify block body id to be correct", async function() {
     const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
 
-    const calls: Call[] = [
+    const msgs: Message[] = [
       {
         addr: signers[3].address,
         cdata: utils.randomBytes(2)
@@ -231,7 +240,7 @@ describe("FirmChainAbi", function () {
 
     const block: Block = {
       header: await randomBlockHeaderSig1(),
-      calls
+      msgs
     };
 
     const expectedId = getBlockBodyId(block); 
@@ -243,7 +252,7 @@ describe("FirmChainAbi", function () {
   it("Should verify block body id to be incorrect", async function() {
     const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
 
-    const calls: Call[] = [
+    const msgs: Message[] = [
       {
         addr: signers[3].address,
         cdata: utils.randomBytes(2)
@@ -260,7 +269,7 @@ describe("FirmChainAbi", function () {
 
     const block: Block = {
       header: await randomBlockHeaderSig1(),
-      calls
+      msgs
     };
 
     expect(await abiProxy.verifyBlockBodyId(block)).to.be.false;
@@ -319,20 +328,20 @@ describe("FirmChainAbi", function () {
   });
 
   it("Should verify that block signature is valid", async function() {
-    const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
+    const { abiProxy } = await loadFixture(deployAbiProxy);
+    const wallets = await createWallets();
 
     const header = await randomBlockHeaderSig1();
     const digest = getBlockDigest(header);
 
-    const wallet = ethers.Wallet.createRandom();
-    const sig = wallet._signingKey().signDigest(digest);
+    const sig = wallets[0]._signingKey().signDigest(digest);
     const otherSig: Signature = { r: randomBytes32(), s: randomBytes32(), v: 7 };
     await setBlockSignatures(header, [sig, otherSig, otherSig]);
 
-    expect(await abiProxy.verifySigInBlock(header, 0, wallet.address)).to.be.true;
+    expect(await abiProxy.verifySigInBlock(header, 0, wallets[0].address)).to.be.true;
 
-    await setBlockSignatures(header, [otherSig, otherSig, sig]);
-    expect(await abiProxy.verifySigInBlock(header, 2, wallet.address)).to.be.true;
+    const header2 = await sign(wallets[1], header);
+    expect(await abiProxy.verifySigInBlock(header2, 3, wallets[1].address)).to.be.true;
   });
 
 });

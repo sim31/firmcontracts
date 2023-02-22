@@ -38,7 +38,7 @@ contract FirmChainAbiProxy {
         return FirmChainAbi.getConfirmerSetId(confirmers, threshold);
     }
 
-    function encodeBlockBody(Call[] calldata calls) public pure returns(bytes memory) {
+    function encodeBlockBody(Message[] calldata calls) public pure returns(bytes memory) {
         return FirmChainAbi.encodeBlockBody(calls);
     }
 

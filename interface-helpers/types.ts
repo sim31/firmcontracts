@@ -5,7 +5,7 @@ import {
   BlockStructOutput,
   BlockHeaderStruct,
   BlockHeaderStructOutput,
-  CallStruct,
+  MessageStruct,
   SignatureStruct
 } from "../typechain-types/FirmChainAbi";
 import { ethers } from "ethers";
@@ -18,7 +18,7 @@ export type Unpromised<T> = {
 export type Confirmer = ConfirmerStruct;
 export type Block = BlockStruct;
 export type BlockHeader = BlockHeaderStruct;
-export type Call = CallStruct;
+export type Message = MessageStruct;
 export type Signature = SignatureStruct;
 export type ConfirmerOp = ConfirmerOpStruct;
 

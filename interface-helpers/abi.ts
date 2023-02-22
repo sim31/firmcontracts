@@ -1,6 +1,6 @@
-import { BytesLike, utils, ethers } from 'ethers';
+import { BytesLike, utils, ethers, Wallet } from 'ethers';
 import {
-  Confirmer, Block, BlockHeader, Call, Signature, ZeroAddr, ZeroId, ConfirmerOutput, ConfirmerValue,
+  Confirmer, Block, BlockHeader, Message, Signature, ZeroAddr, ZeroId, ConfirmerOutput, ConfirmerValue,
 
 } from './types';
 
@@ -8,19 +8,19 @@ export function normalizeHexStr(str: string) {
   return utils.hexlify(str);
 }
 
-export function encodeBlockBody(calls: readonly Call[]): BytesLike {
+export function encodeBlockBody(calls: readonly Message[]): BytesLike {
   const coder = utils.defaultAbiCoder;
   return coder.encode(["tuple(address addr, bytes cdata)[]"], [calls]);
 }
 
-export function getBlockBodyId(calls: Call[]): string;
+export function getBlockBodyId(calls: Message[]): string;
 export function getBlockBodyId(block: Block): string;
-export function getBlockBodyId(callsOrBlock: Block | Call[]): string {
+export function getBlockBodyId(callsOrBlock: Block | Message[]): string {
   let encBody: BytesLike =  ""; 
   if (Array.isArray(callsOrBlock)) {
     encBody = encodeBlockBody(callsOrBlock);
   } else {
-    encBody = encodeBlockBody(callsOrBlock.calls);
+    encBody = encodeBlockBody(callsOrBlock.msgs);
   }
   return utils.keccak256(encBody);
 }
@@ -79,6 +79,24 @@ export async function setBlockSignatures(header: BlockHeader, sigs: Signature[])
     packedSigs.push(await packSig(sig));
   }
   header.sigs = utils.concat(packedSigs);
+}
+
+export async function sign(wallet: Wallet, header: BlockHeader): Promise<BlockHeader>;
+export async function sign(wallets: Wallet[], header: BlockHeader): Promise<BlockHeader>;
+export async function sign(w: Wallet[] | Wallet, header: BlockHeader): Promise<BlockHeader> {
+  const wallets = Array.isArray(w) ? w : [w];
+  const prevSigs = await Promise.resolve(header.sigs);
+  const digest = getBlockDigest(header);
+  const sigs: BytesLike[] = [];
+
+  for (const wallet of wallets) {
+    sigs.push(await packSig(wallet._signingKey().signDigest(digest)));
+  }
+
+  return {
+    ...header,
+    sigs: utils.concat([prevSigs, ...sigs]),
+  };
 }
 
 

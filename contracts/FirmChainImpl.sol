@@ -109,7 +109,7 @@ library FirmChainImpl {
         address signatory,
         uint8 sigIndex
     ) external returns (bool) {
-        require(header.verifySigInBlock(sigIndex, signatory));
+        require(header.verifySigInBlock(sigIndex, signatory), "Invalid signature");
         return _confirm(chain, header, signatory);
     }
 
@@ -190,8 +190,8 @@ library FirmChainImpl {
 
         // Store confirmation
         if (chain._confirmerStatus[confirmerAddr] != ConfirmerStatus.FAULTY) {
-            chain._backlinks[packedLink(msg.sender, bId)] = prevId;
-            chain._forwardLinks[packedLink(msg.sender, prevId)] = bId;
+            chain._backlinks[packedLink(confirmerAddr, bId)] = prevId;
+            chain._forwardLinks[packedLink(confirmerAddr, prevId)] = bId;
             return true;
         } else {
             return false;
@@ -247,8 +247,8 @@ library FirmChainImpl {
     }
 
     function _execute(FirmChain storage chain, Block calldata bl, bytes32 bId) private {
-        for (uint8 i = 0; i < bl.calls.length; i++) {
-            Call calldata c = bl.calls[i];
+        for (uint8 i = 0; i < bl.msgs.length; i++) {
+            Message calldata c = bl.msgs[i];
             if (isContract(c.addr)) {
                 // We don't revert if these calls fail.
                 // But note that all available gas is passed.
