@@ -1,10 +1,11 @@
 import { time, loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
+import { utils } from "ethers";
 
 import * as abi from "./FirmChainAbiTests";
 import { Block, BlockHeader, Call, Confirmer, ConfirmerOp, ZeroId } from "../interface-helpers/types";
-import { getBlockBodyId, getConfirmerSetId } from "../interface-helpers/abi";
+import { decodeConfirmer, getBlockBodyId, getBlockId, getConfirmerSetId, normalizeHexStr } from "../interface-helpers/abi";
 import { createAddConfirmerOps } from "../interface-helpers/firmchain";
 
 describe("FirmChain", function () {
@@ -36,19 +37,19 @@ describe("FirmChain", function () {
     // TODO: need to create my own signers (so that I can sign block digests not just eth txs)
     const confs: Confirmer[] = [
       {
-        addr: signers[0].address,
+        addr: normalizeHexStr(signers[0].address),
         weight: 1
       },
       {
-        addr: signers[1].address,
+        addr: normalizeHexStr(signers[1].address),
         weight: 1
       },
       {
-        addr: signers[2].address,
+        addr: normalizeHexStr(signers[2].address),
         weight: 1
       },
       {
-        addr: signers[3].address,
+        addr: normalizeHexStr(signers[3].address),
         weight: 1
       }
     ];
@@ -73,9 +74,11 @@ describe("FirmChain", function () {
     };
 
 
-    let chain;
     const deployCall = factory.deploy(genesisBl, confOps, threshold);
     await expect(deployCall).to.not.be.reverted;
+    const chain = await deployCall;
+
+    return { signers, chain, confs, genesisBl, threshold, implLib, abiLib };
   }
 
   describe("Deployment", async function() {
@@ -86,6 +89,32 @@ describe("FirmChain", function () {
     it("Should create new FirmChain successfully", async function() {
       await loadFixture(deployChain);
     })
+
+    it("Should set confirmers", async function() {
+      const { signers, chain, confs } = await loadFixture(deployChain);
+
+      const confBytes = await chain.getConfirmers();      
+
+      for (const [index, c] of confBytes.entries()) {
+        expect(decodeConfirmer(c)).to.containSubset(confs[index]);
+      }
+    });
+
+    it("Should set threshold", async function() {
+      const { chain, threshold: expThreshold } = await loadFixture(deployChain);
+
+      const threshold = await chain.getThreshold();
+
+      expect(threshold).to.equal(expThreshold);
+    });
+
+    it("Should set head", async function() {
+      const { chain, genesisBl } = await loadFixture(deployChain);
+
+      const head = await chain.getHead();
+
+      expect(head).to.equal(getBlockId(genesisBl.header));
+    });
 
   });
 

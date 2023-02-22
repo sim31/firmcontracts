@@ -418,6 +418,18 @@ library FirmChainImpl {
         return isConfirmedBy(chain, blockId, address(this));
     }
 
+    function getConfirmers(FirmChain storage chain) public view returns (bytes32[] memory) {
+        return chain._confirmerSet.getConfirmers();
+    }
+
+    function getThreshold(FirmChain storage chain) public view returns (uint8) {
+        return chain._confirmerSet.getConfirmerThreshold();
+    }
+
+    function getHead(FirmChain storage chain) public view returns (bytes32) {
+        return chain._head;
+    }
+
     function isContract(address _addr) private view returns (bool){
         uint32 size;
         assembly {

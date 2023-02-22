@@ -1,8 +1,12 @@
 import { BytesLike, utils, ethers } from 'ethers';
 import {
-  Confirmer, Block, BlockHeader, Call, Signature, ZeroAddr, ZeroId,
+  Confirmer, Block, BlockHeader, Call, Signature, ZeroAddr, ZeroId, ConfirmerOutput, ConfirmerValue,
 
 } from './types';
+
+export function normalizeHexStr(str: string) {
+  return utils.hexlify(str);
+}
 
 export function encodeBlockBody(calls: readonly Call[]): BytesLike {
   const coder = utils.defaultAbiCoder;
@@ -29,6 +33,15 @@ export async function encodeConfirmer(conf: Confirmer): Promise<BytesLike> {
     [Number((await Promise.resolve(conf.weight)).toString())]
   ]);
   return bytes;
+}
+
+export function decodeConfirmer(b: BytesLike): ConfirmerValue {
+  const confirmer: ConfirmerValue = {
+    addr: utils.hexDataSlice(b, 11, 31),
+    weight: utils.arrayify(utils.hexDataSlice(b, 31, 32))[0],
+
+  }
+  return confirmer;
 }
 
 export async function getConfirmerSetId(confs: Confirmer[], threshold: number): Promise<string> {

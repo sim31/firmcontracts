@@ -53,4 +53,16 @@ contract FirmChain is IFirmChain {
     ) external {
         _impl.updateConfirmerSet(ops, threshold);
     }
+
+    function getConfirmers() external view returns (bytes32[] memory) {
+        return _impl.getConfirmers();
+    }
+
+    function getThreshold() external view returns (uint8) {
+        return _impl.getThreshold();
+    }
+
+    function getHead() external view returns (bytes32) {
+        return _impl.getHead();
+    }
 }

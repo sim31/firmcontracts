@@ -3,7 +3,7 @@ import chai, { expect } from "chai";
 import chaiSubset from "chai-subset";
 import { ethers } from "hardhat";
 import { utils } from 'ethers';
-import { encodeBlockBody, encodeConfirmer, encodeHeader, getBlockBodyId, getBlockDigest, getBlockId, getConfirmerSetId, randomBytes32, randomBytes32Hex, randomSig, setBlockSignatures } from "../interface-helpers/abi";
+import { encodeBlockBody, encodeConfirmer, encodeHeader, getBlockBodyId, getBlockDigest, getBlockId, getConfirmerSetId, normalizeHexStr, randomBytes32, randomBytes32Hex, randomSig, setBlockSignatures } from "../interface-helpers/abi";
 import { Block, BlockHeader, Call, Confirmer, Signature } from "../interface-helpers/types";
 
 chai.use(chaiSubset);

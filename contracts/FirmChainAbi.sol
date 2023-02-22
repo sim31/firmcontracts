@@ -137,6 +137,12 @@ library FirmChainAbi {
         return confSet._confirmers.length();
     }
 
+    function getConfirmers(
+        ConfirmerSet storage confSet
+    ) public view returns (bytes32[] memory) {
+        return confSet._confirmers.values();
+    }
+
     function addConfirmer(ConfirmerSet storage confSet, Confirmer calldata conf) public returns(bool) {
         return confSet._confirmers.add(encodeConfirmer(conf));
     }
