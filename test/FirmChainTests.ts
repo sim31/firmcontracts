@@ -39,7 +39,7 @@ describe("FirmChain", function () {
   }
 
   async function deployChain() {
-    const { implLib, abiLib } = await loadFixture(deployImplLib);
+    const { implLib, abiLib, signers } = await loadFixture(deployImplLib);
     const wallets = await abi.createWallets();
 
     const factory = await ethers.getContractFactory(
@@ -101,7 +101,20 @@ describe("FirmChain", function () {
       sigs: []
     };
 
-    return { wallets, chain, confs, genesisBl, nextHeader, threshold, implLib, abiLib };
+    return { wallets, chain, confs, genesisBl, nextHeader, threshold, implLib, abiLib, signers };
+  }
+
+  async function deployToken(issuer: string) {
+    const factory = await ethers.getContractFactory("IssuedToken");
+    const deployCall = factory.deploy("Test", "TOK", issuer);
+    await expect(deployCall).to.not.be.reverted;
+    return await deployCall;
+  }
+
+  async function deployFirmChainToken() {
+    const fixtureVars = await loadFixture(deployChain);
+    const token = await deployToken(fixtureVars.chain.address);
+    return { ...fixtureVars, token };
   }
 
   describe("Deployment", async function() {
@@ -226,5 +239,196 @@ describe("FirmChain", function () {
     });
   });
 
+  describe("finalize", async function() {
+    describe("external confirmations", async function() {
+      it("Should fail in case of no confirmations", async function() {
+        const { chain, wallets, nextHeader } = await loadFixture(deployChain);
+
+        await expect(chain.finalize(nextHeader)).to.be.reverted;
+      });
+
+      it("Should succeed after receiving enough external confirmations", async function() {
+        const { chain, wallets, nextHeader } = await loadFixture(deployChain);
+
+        const confWallets = [wallets[0], wallets[1], wallets[2]];
+        const header = await sign(confWallets, nextHeader);
+
+        await extConfirmByAll(chain, confWallets, header);
+
+        await expect(chain.finalize(header)).to.not.be.reverted;
+      });
+
+      it("Should fail in case of not enough external confirmations", async function() {
+        const { chain, wallets, nextHeader } = await loadFixture(deployChain);
+
+        const confWallets = [wallets[0], wallets[1]];
+        const header = await sign(confWallets, nextHeader);
+
+        await extConfirmByAll(chain, confWallets, header);
+
+        await expect(chain.finalize(header)).to.be.reverted;
+      });
+
+      it("Should record finalization", async function() {
+        const { chain, wallets, nextHeader } = await loadFixture(deployChain);
+
+        const confWallets = [wallets[0], wallets[1], wallets[2]];
+        const header = await sign(confWallets, nextHeader);
+
+        await extConfirmByAll(chain, confWallets, header);
+
+        await expect(chain.finalize(header)).to.not.be.reverted;
+
+        const blockId = getBlockId(header);
+        expect(await chain.isFinalized(blockId)).to.be.true;
+      });
+    })
+  });
+
+  describe("execute", async function() {
+    it("Should execute a block without messages", async function() {
+        const { chain, wallets, nextHeader } = await loadFixture(deployChain);
+
+        const confWallets = [wallets[0], wallets[1], wallets[2]];
+        const header = await sign(confWallets, nextHeader);
+        const block = {
+          header, msgs: [],
+        }
+
+        await extConfirmByAll(chain, confWallets, header);
+
+        await expect(chain.finalize(header)).to.not.be.reverted;
+
+        await expect(chain.execute(block)).to.not.be.reverted;
+    });
+
+    describe("Minting a token", async function() {
+      it(
+        "Should emit ContractDoesNotExist event if contract does not exist",
+        async function() {
+          const { token, chain, wallets, nextHeader, implLib } = await loadFixture(deployFirmChainToken);
+
+          const issueMsgData = token.interface.encodeFunctionData('mint', [
+            wallets[5].address, 10
+          ]);
+          const msg: Message = {
+            addr: wallets[4].address,
+            cdata: issueMsgData,
+          };
+          const msgs = [msg];
+          const bodyId = getBlockBodyId(msgs);
+          let header: BlockHeader = { ...nextHeader, blockBodyId: bodyId };
+          const confWallets = [wallets[0], wallets[1], wallets[3]];
+          header = await sign(confWallets, header);
+          const block: Block = {
+            header,
+            msgs,
+          };
+          
+          await extConfirmByAll(chain, confWallets, header);
+          await expect(chain.finalize(header)).to.not.be.reverted;
+          await expect(chain.execute(block)).to.emit(chain, "ContractDoesNotExist");
+      });
+
+      it(
+        "Should mint token successfully",
+        async function() {
+          const { token, chain, wallets, nextHeader, implLib } = await loadFixture(deployFirmChainToken);
+
+          const issueMsgData = token.interface.encodeFunctionData('mint', [
+            wallets[5].address, 10
+          ]);
+          const msg: Message = {
+            addr: token.address,
+            cdata: issueMsgData,
+          };
+          const msgs = [msg];
+          const bodyId = getBlockBodyId(msgs);
+          let header: BlockHeader = { ...nextHeader, blockBodyId: bodyId };
+          const confWallets = [wallets[0], wallets[1], wallets[3]];
+          header = await sign(confWallets, header);
+          const block: Block = {
+            header,
+            msgs,
+          };
+          
+          await extConfirmByAll(chain, confWallets, header);
+          await expect(chain.finalize(header)).to.not.be.reverted;
+          // If event is emitted that means the call did not fail
+          await expect(chain.execute(block)).to.emit(chain, "ExternalCall");
+          expect(await token.balanceOf(wallets[5].address)).to.be.equal(10);
+      });
+
+      it(
+        "Should mint transferrable token successfully",
+        async function() {
+          const { token, chain, wallets, nextHeader, implLib, signers } = await loadFixture(deployFirmChainToken);
+
+          const issueMsgData = token.interface.encodeFunctionData('mint', [
+            signers[5].address, 10
+          ]);
+          const msg: Message = {
+            addr: token.address,
+            cdata: issueMsgData,
+          };
+          const msgs = [msg];
+          const bodyId = getBlockBodyId(msgs);
+          let header: BlockHeader = { ...nextHeader, blockBodyId: bodyId };
+          const confWallets = [wallets[0], wallets[1], wallets[3]];
+          header = await sign(confWallets, header);
+          const block: Block = {
+            header,
+            msgs,
+          };
+          
+          await extConfirmByAll(chain, confWallets, header);
+          await expect(chain.finalize(header)).to.not.be.reverted;
+          // If event is emitted that means the call did not fail
+          await expect(chain.execute(block)).to.emit(chain, "ExternalCall");
+          expect(await token.balanceOf(signers[5].address)).to.be.equal(10);
+
+          await expect(
+            token.connect(signers[5]).transfer(wallets[4].address, 4)
+          ).to.not.be.reverted;
+          expect(await token.balanceOf(signers[5].address)).to.be.equal(6);
+          expect(await token.balanceOf(wallets[4].address)).to.be.equal(4);
+      });
+    });
+  });
+
+  describe("finalizeAndExecute", async function() {
+    it("Should finalize and execute a block without messages", async function() {
+        const { chain, wallets, nextHeader } = await loadFixture(deployChain);
+
+        const confWallets = [wallets[0], wallets[1], wallets[2]];
+        const header = await sign(confWallets, nextHeader);
+        const block = {
+          header, msgs: [],
+        }
+
+        await extConfirmByAll(chain, confWallets, header);
+
+        await expect(chain.finalizeAndExecute(block)).to.not.be.reverted;
+    });
+  });
+
+  describe("isFinalized", async function() {
+    it("Should return false for non-finalized blocks", async function() {
+        const { chain, wallets, nextHeader } = await loadFixture(deployChain);
+
+        expect(await chain.isFinalized(getBlockId(nextHeader))).to.be.false;
+
+        const confWallets = [wallets[0], wallets[1]];
+        const header = await sign(confWallets, nextHeader);
+
+        await extConfirmByAll(chain, confWallets, header);
+
+        await expect(chain.finalize(header)).to.be.reverted;
+
+        const blockId = getBlockId(header);
+        expect(await chain.isFinalized(blockId)).to.be.false;
+    });
+
+  });
 })
 

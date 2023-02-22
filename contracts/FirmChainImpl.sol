@@ -255,11 +255,14 @@ library FirmChainImpl {
                 // So in case of out of gas exception this transaction should revert as well.
                 (bool success, bytes memory retVal) = c.addr.call(c.cdata);
                 if (success) {
+                    // console.log("External call");
                     emit ExternalCall(retVal);
                 } else {
+                    // console.log("External call fail");
                     emit ExternalCallFail(retVal);
                 }
             } else {
+                // console.log("Contract does not exist");
                 emit ContractDoesNotExist(c.addr);
             }
         }

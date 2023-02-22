@@ -8,7 +8,10 @@ import "hardhat/console.sol";
 
 contract FirmChain is IFirmChain {
     event ByzantineFault(address source, bytes32 forkPoint);
-    event ConfirmFail(address code);
+    event WrongConfirmerSetId(bytes32 blockId);
+    event ExternalCall(bytes retValue);
+    event ExternalCallFail(bytes retValue);
+    event ContractDoesNotExist(address addr);
 
     using FirmChainImpl for FirmChainImpl.FirmChain;
 
