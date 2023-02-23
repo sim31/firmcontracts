@@ -5,7 +5,7 @@ import { utils, Wallet } from "ethers";
 
 import * as abi from "./FirmChainAbiTests";
 import { Block, BlockHeader, Message, Confirmer, ConfirmerOp, ZeroId } from "../interface-helpers/types";
-import { decodeConfirmer, getBlockBodyId, getBlockId, getConfirmerSetId, normalizeHexStr, sign } from "../interface-helpers/abi";
+import { createBlock, createMsg, decodeConfirmer, getBlockBodyId, getBlockId, getConfirmerSetId, normalizeHexStr, sign } from "../interface-helpers/abi";
 import { createAddConfirmerOps } from "../interface-helpers/firmchain";
 import { FirmChain } from "../typechain-types";
 
@@ -306,7 +306,7 @@ describe("FirmChain", function () {
       it(
         "Should emit ContractDoesNotExist event if contract does not exist",
         async function() {
-          const { token, chain, wallets, nextHeader, implLib } = await loadFixture(deployFirmChainToken);
+          const { token, chain, wallets, genesisBl } = await loadFixture(deployFirmChainToken);
 
           const issueMsgData = token.interface.encodeFunctionData('mint', [
             wallets[5].address, 10
@@ -315,76 +315,50 @@ describe("FirmChain", function () {
             addr: wallets[4].address,
             cdata: issueMsgData,
           };
-          const msgs = [msg];
-          const bodyId = getBlockBodyId(msgs);
-          let header: BlockHeader = { ...nextHeader, blockBodyId: bodyId };
-          const confWallets = [wallets[0], wallets[1], wallets[3]];
-          header = await sign(confWallets, header);
-          const block: Block = {
-            header,
-            msgs,
-          };
+          const newBlock = await createBlock(
+            genesisBl,
+            [msg],
+            [wallets[0], wallets[1], wallets[2]],
+          );
           
-          await extConfirmByAll(chain, confWallets, header);
-          await expect(chain.finalize(header)).to.not.be.reverted;
-          await expect(chain.execute(block)).to.emit(chain, "ContractDoesNotExist");
+          await extConfirmByAll(chain, newBlock.signers, newBlock.header);
+          await expect(chain.finalize(newBlock.header)).to.not.be.reverted;
+          await expect(chain.execute(newBlock)).to.emit(chain, "ContractDoesNotExist");
       });
 
       it(
         "Should mint token successfully",
         async function() {
-          const { token, chain, wallets, nextHeader, implLib } = await loadFixture(deployFirmChainToken);
+          const { token, chain, wallets, genesisBl } = await loadFixture(deployFirmChainToken);
 
-          const issueMsgData = token.interface.encodeFunctionData('mint', [
-            wallets[5].address, 10
-          ]);
-          const msg: Message = {
-            addr: token.address,
-            cdata: issueMsgData,
-          };
-          const msgs = [msg];
-          const bodyId = getBlockBodyId(msgs);
-          let header: BlockHeader = { ...nextHeader, blockBodyId: bodyId };
-          const confWallets = [wallets[0], wallets[1], wallets[3]];
-          header = await sign(confWallets, header);
-          const block: Block = {
-            header,
-            msgs,
-          };
-          
-          await extConfirmByAll(chain, confWallets, header);
-          await expect(chain.finalize(header)).to.not.be.reverted;
+          const newBlock = await createBlock(
+            genesisBl,
+            [createMsg(token, 'mint', [wallets[5].address, 12])],
+            [wallets[0], wallets[1], wallets[3]],
+          );
+
+          await extConfirmByAll(chain, newBlock.signers, newBlock.header);
+          await expect(chain.finalize(newBlock.header)).to.not.be.reverted;
           // If event is emitted that means the call did not fail
-          await expect(chain.execute(block)).to.emit(chain, "ExternalCall");
-          expect(await token.balanceOf(wallets[5].address)).to.be.equal(10);
+          await expect(chain.execute(newBlock)).to.emit(chain, "ExternalCall");
+          expect(await token.balanceOf(wallets[5].address)).to.be.equal(12);
       });
 
       it(
         "Should mint transferrable token successfully",
         async function() {
-          const { token, chain, wallets, nextHeader, implLib, signers } = await loadFixture(deployFirmChainToken);
+          const { token, chain, wallets, genesisBl, signers } = await loadFixture(deployFirmChainToken);
 
-          const issueMsgData = token.interface.encodeFunctionData('mint', [
-            signers[5].address, 10
-          ]);
-          const msg: Message = {
-            addr: token.address,
-            cdata: issueMsgData,
-          };
-          const msgs = [msg];
-          const bodyId = getBlockBodyId(msgs);
-          let header: BlockHeader = { ...nextHeader, blockBodyId: bodyId };
-          const confWallets = [wallets[0], wallets[1], wallets[3]];
-          header = await sign(confWallets, header);
-          const block: Block = {
-            header,
-            msgs,
-          };
+          const newBlock = await createBlock(
+            genesisBl,
+            [createMsg(token, 'mint', [signers[5].address, 10])],
+            [wallets[0], wallets[1], wallets[3]],
+          );
           
-          await extConfirmByAll(chain, confWallets, header);
-          await expect(chain.finalize(header)).to.not.be.reverted;
+          await extConfirmByAll(chain, newBlock.signers, newBlock.header);
+          await expect(chain.finalize(newBlock.header)).to.not.be.reverted;
           // If event is emitted that means the call did not fail
-          await expect(chain.execute(block)).to.emit(chain, "ExternalCall");
+          await expect(chain.execute(newBlock)).to.emit(chain, "ExternalCall");
           expect(await token.balanceOf(signers[5].address)).to.be.equal(10);
 
           await expect(

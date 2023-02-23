@@ -7,9 +7,9 @@ import {
   BlockHeaderStructOutput,
   MessageStruct,
   SignatureStruct
-} from "../typechain-types/FirmChainAbi";
-import { ethers } from "ethers";
-import { ConfirmerOpStruct } from "../typechain-types/FirmChain";
+} from "../typechain-types/contracts/FirmChainAbi";
+import { ethers, Wallet } from "ethers";
+import { ConfirmerOpStruct } from "../typechain-types/contracts/FirmChain";
 
 export type Unpromised<T> = {
   [P in keyof T]: Awaited<T[P]>;
@@ -33,3 +33,9 @@ export const ConfirmerOpId = {
   Add: 0,
   Remove: 1
 } as const;
+
+export function isBlock(bl: BlockHeader | Block): bl is Block {
+  return 'header' in bl;
+}
+
+export type SignedBlock = Block & { signers: Wallet[] };
