@@ -1,45 +1,8 @@
-import { BytesLike, utils, ethers, Wallet, BaseContract } from 'ethers';
+import { BytesLike, utils, Wallet, } from 'ethers';
 import {
-  Confirmer, Block, BlockHeader, Message, Signature, ZeroAddr, ZeroId, ConfirmerOutput, ConfirmerValue, isBlock, SignedBlock,
+  Confirmer, Block, BlockHeader, Message, Signature, ZeroAddr, ZeroId, ConfirmerOutput, ConfirmerValue, isBlock, SignedBlock, ExtendedBlock,
 
 } from './types';
-
-export function createMsg<
-    T extends BaseContract,
-    FunctionName extends keyof Pick<T['populateTransaction'], string>,
->(
-  contract: T,
-  functionName: FunctionName,
-  args: Parameters<T['populateTransaction'][FunctionName]>,
-) {
-  const data = contract.interface.encodeFunctionData(functionName, args);
-  const msg: Message = {
-    addr: contract.address,
-    cdata: data,
-  };
-
-  return msg;
-}
-
-// TODO: Figure out the new confirmer set id from the messages
-export async function createBlock(
-  prevBlock: BlockHeader | Block,
-  messages: Message[],
-  signers: Wallet[]
-): Promise<SignedBlock> {
-  const prevHeader = isBlock(prevBlock) ? prevBlock.header : prevBlock;
-  let newHeader: BlockHeader = {
-    prevBlockId: getBlockId(prevHeader),
-    blockBodyId: getBlockBodyId(messages),
-    confirmerSetId: prevHeader.confirmerSetId,
-    // TODO: Set current time
-    timestamp: 0,
-    sigs: []
-  }
-  newHeader = await sign(signers, newHeader);
-
-  return { header: newHeader, msgs: messages, signers };
-}
 
 export function normalizeHexStr(str: string) {
   return utils.hexlify(str);

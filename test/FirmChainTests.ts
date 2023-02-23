@@ -4,9 +4,12 @@ import { ethers } from "hardhat";
 import { utils, Wallet } from "ethers";
 
 import * as abi from "./FirmChainAbiTests";
-import { Block, BlockHeader, Message, Confirmer, ConfirmerOp, ZeroId } from "../interface-helpers/types";
-import { createBlock, createMsg, decodeConfirmer, getBlockBodyId, getBlockId, getConfirmerSetId, normalizeHexStr, sign } from "../interface-helpers/abi";
-import { createAddConfirmerOps } from "../interface-helpers/firmchain";
+import { Block, BlockHeader, Message, Confirmer, ConfirmerOp, ZeroId, FullExtendedBlock } from "../interface-helpers/types";
+import { decodeConfirmer, getBlockBodyId, getBlockId, getConfirmerSetId, normalizeHexStr, sign } from "../interface-helpers/abi";
+import {
+  createAddConfirmerOp, createAddConfirmerOps, createRemoveConfirmerOp,
+  createBlock, createMsg, createGenesisBlock, createBlockTemplate, updatedConfirmerSet,
+} from "../interface-helpers/firmchain";
 import { FirmChain } from "../typechain-types";
 
 export async function extConfirmByAll(chain: FirmChain, wallets: Wallet[], header: BlockHeader) {
@@ -50,58 +53,27 @@ describe("FirmChain", function () {
     );
 
     // TODO: need to create my own signers (so that I can sign block digests not just eth txs)
-    const confs: Confirmer[] = [
-      {
-        addr: normalizeHexStr(wallets[0].address),
-        weight: 1
-      },
-      {
-        addr: normalizeHexStr(wallets[1].address),
-        weight: 1
-      },
-      {
-        addr: normalizeHexStr(wallets[2].address),
-        weight: 1
-      },
-      {
-        addr: normalizeHexStr(wallets[3].address),
-        weight: 1
-      }
+    const confOps: ConfirmerOp[] = [
+      createAddConfirmerOp(wallets[0], 1),
+      createAddConfirmerOp(wallets[1], 1),
+      createAddConfirmerOp(wallets[2], 1),
+      createAddConfirmerOp(wallets[3], 1),
     ];
     const threshold = 3;
-    const confSetId = await getConfirmerSetId(confs, threshold);
-    const confOps: ConfirmerOp[] = createAddConfirmerOps(confs);
-
-    const msgs: Message[] = []
-    const bodyId = getBlockBodyId(msgs);
-
-    const header: BlockHeader = {
-      prevBlockId: ZeroId,
-      blockBodyId: bodyId,
-      confirmerSetId: confSetId,
-      timestamp: await time.latest(),
-      sigs: []
-    };
-
-    const genesisBl: Block = {
-      header,
-      msgs
-    };
-
+    const genesisBl = await createGenesisBlock([], confOps, threshold);
 
     const deployCall = factory.deploy(genesisBl, confOps, threshold);
     await expect(deployCall).to.not.be.reverted;
     const chain = await deployCall;
+    genesisBl.contract = chain;
 
-    const nextHeader: BlockHeader = {
-      prevBlockId: getBlockId(genesisBl.header),
-      blockBodyId: bodyId,
-      confirmerSetId: genesisBl.header.confirmerSetId,
-      timestamp: await time.latest(),
-      sigs: []
+    return {
+      wallets, chain, implLib, abiLib, signers,
+      nextHeader: (await createBlockTemplate(genesisBl as FullExtendedBlock)).header,
+      genesisBl: genesisBl as FullExtendedBlock,
+      confs: genesisBl.confirmerSet.confirmers,
+      threshold: genesisBl.confirmerSet.threshold,
     };
-
-    return { wallets, chain, confs, genesisBl, nextHeader, threshold, implLib, abiLib, signers };
   }
 
   async function deployToken(issuer: string) {
@@ -367,7 +339,76 @@ describe("FirmChain", function () {
           expect(await token.balanceOf(signers[5].address)).to.be.equal(6);
           expect(await token.balanceOf(wallets[4].address)).to.be.equal(4);
       });
+
+      it("Should fail for un-finalized blocks", async function() {
+          const { token, chain, wallets, genesisBl, signers } = await loadFixture(deployFirmChainToken);
+
+          const newBlock = await createBlock(
+            genesisBl,
+            [createMsg(token, 'mint', [signers[5].address, 10])],
+            [wallets[0], wallets[3]],
+          );
+
+          await extConfirmByAll(chain, newBlock.signers, newBlock.header);
+          await expect(chain.finalize(newBlock.header)).to.be.reverted;
+
+          await expect(chain.execute(newBlock)).to.be.reverted;
+      });
     });
+
+    describe("Updating confirmer set", async function() {
+      // TODO: Should not work if confirmerSetId is not updated
+      it(
+        "Should allow firmchain to remove confirmers from its own confirmer set",
+        async function() {
+          const { confs, chain, wallets, genesisBl } = await loadFixture(deployChain);
+
+          const confOps = [
+            createRemoveConfirmerOp(confs[0]),
+          ];
+
+          const newBlock = await createBlock(
+            genesisBl,
+            [],
+            [wallets[0], wallets[1], wallets[2]],
+            confOps, 2,
+          );
+
+          await extConfirmByAll(chain, newBlock.signers, newBlock.header);
+          await expect(chain.finalize(newBlock.header)).to.not.be.reverted;
+
+          await expect(chain.execute(newBlock)).to.not.be.reverted;
+
+          const newConfs = newBlock.confirmerSet.confirmers;
+          const confBytes = await chain.getConfirmers(); 
+          for (const [index, c] of confBytes.entries()) {
+            expect(decodeConfirmer(c)).to.containSubset(newConfs[index]);
+          }
+      })
+
+    });
+  });
+
+  describe("updateConfirmerSet", async function() {
+    it("Should not allow removing confirmers for anyone", async function() {
+      const { chain, confs } = await loadFixture(deployChain);
+
+      const ops = [
+        createRemoveConfirmerOp(confs[0]),
+        createRemoveConfirmerOp(confs[1]),
+      ];
+
+      await expect(chain.updateConfirmerSet(ops, 1)).to.be.reverted;
+    })
+    it("Should not allow adding confirmers for anyone", async function() {
+      const { chain, wallets } = await loadFixture(deployChain);
+
+      const ops = [
+        createAddConfirmerOp(wallets[0], 3),
+      ];
+
+      await expect(chain.updateConfirmerSet(ops, 3)).to.be.reverted;
+    })
   });
 
   describe("finalizeAndExecute", async function() {
