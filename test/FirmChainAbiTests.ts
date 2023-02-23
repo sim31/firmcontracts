@@ -3,8 +3,8 @@ import chai, { expect } from "chai";
 import chaiSubset from "chai-subset";
 import { ethers } from "hardhat";
 import { utils, Wallet } from 'ethers';
-import { encodeBlockBody, encodeConfirmer, encodeHeader, getBlockBodyId, getBlockDigest, getBlockId, getConfirmerSetId, normalizeHexStr, randomBytes32, randomBytes32Hex, randomSig, setBlockSignatures, sign } from "../interface-helpers/abi";
-import { Block, BlockHeader, Message, Confirmer, Signature } from "../interface-helpers/types";
+import { encodeBlockBody, encodeConfirmer, encodeHeader, getBlockBodyId, getBlockDigest, getBlockId, getConfirmerSetId, normalizeHexStr, randomBytes32, randomBytes32Hex, randomSig, setBlockSignatures, sign } from "../interface/abi";
+import { Block, BlockHeader, Message, Confirmer, Signature } from "../interface/types";
 import { MinEthersFactory } from "../typechain-types/common";
 
 chai.use(chaiSubset);

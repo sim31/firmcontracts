@@ -4,12 +4,12 @@ import { ethers } from "hardhat";
 import { utils, Wallet } from "ethers";
 
 import * as abi from "./FirmChainAbiTests";
-import { Block, BlockHeader, Message, Confirmer, ConfirmerOp, ZeroId, FullExtendedBlock } from "../interface-helpers/types";
-import { decodeConfirmer, getBlockBodyId, getBlockId, getConfirmerSetId, normalizeHexStr, sign } from "../interface-helpers/abi";
+import { Block, BlockHeader, Message, Confirmer, ConfirmerOp, ZeroId, FullExtendedBlock } from "../interface/types";
+import { decodeConfirmer, getBlockBodyId, getBlockId, getConfirmerSetId, normalizeHexStr, sign } from "../interface/abi";
 import {
   createAddConfirmerOp, createAddConfirmerOps, createRemoveConfirmerOp,
   createBlock, createMsg, createGenesisBlock, createBlockTemplate, updatedConfirmerSet,
-} from "../interface-helpers/firmchain";
+} from "../interface/firmchain";
 import { FirmChain } from "../typechain-types";
 
 export async function extConfirmByAll(chain: FirmChain, wallets: Wallet[], header: BlockHeader) {
@@ -379,12 +379,37 @@ describe("FirmChain", function () {
 
           await expect(chain.execute(newBlock)).to.not.be.reverted;
 
-          const newConfs = newBlock.confirmerSet.confirmers;
+          const newConfSet = updatedConfirmerSet(genesisBl.confirmerSet, confOps, 2);
           const confBytes = await chain.getConfirmers(); 
           for (const [index, c] of confBytes.entries()) {
-            expect(decodeConfirmer(c)).to.containSubset(newConfs[index]);
+            expect(decodeConfirmer(c)).to.containSubset(newConfSet.confirmers[index]);
           }
-      })
+          expect(await chain.getThreshold()).to.be.equal(2);
+      });
+
+      it(
+        "Should fail if old confirmerSetId is specified in the block",
+        async function() {
+          const { confs, chain, wallets, genesisBl } = await loadFixture(deployChain);
+
+          const confOps = [
+            createRemoveConfirmerOp(confs[0]),
+          ];
+
+          const newBlock = await createBlock(
+            genesisBl,
+            [],
+            [wallets[0], wallets[1], wallets[2]],
+            confOps, 2,
+          );
+          newBlock.header.confirmerSetId = genesisBl.header.confirmerSetId;
+
+          await extConfirmByAll(chain, newBlock.signers, newBlock.header);
+          await expect(chain.finalize(newBlock.header)).to.not.be.reverted;
+
+          await expect(chain.execute(newBlock)).to.not.be.reverted;
+          
+        })
 
     });
   });

@@ -1,6 +1,6 @@
 import {
   Confirmer, ConfirmerOp, ConfirmerOpId, ExtendedBlock, isConfirmer, Message, SignedBlock,
-  Block, BlockHeader, ConfirmerSet, InitConfirmerSet, ZeroId,
+  Block, BlockHeader, ConfirmerSet, InitConfirmerSet, ZeroId, FullExtendedBlock,
 } from './types'
 import { Wallet, BaseContract } from 'ethers';
 import { normalizeHexStr, getBlockBodyId, getBlockId, sign, getConfirmerSetId, } from './abi';
@@ -98,7 +98,7 @@ export async function createBlock(
   signers: Wallet[],
   confirmerOps?: ConfirmerOp[],
   newThreshold?: number,
-): Promise<ExtendedBlock> {
+): Promise<FullExtendedBlock> {
   const prevHeader = prevBlock.header;
 
   const confSet = updatedConfirmerSet(prevBlock.confirmerSet, confirmerOps, newThreshold);
@@ -151,6 +151,6 @@ export async function createGenesisBlock(
   };
 }
 
-export async function createBlockTemplate(prevBlock: Required<ExtendedBlock>) {
+export async function createBlockTemplate(prevBlock: FullExtendedBlock) {
   return createBlock(prevBlock, [], []);
 }

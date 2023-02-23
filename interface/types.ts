@@ -12,6 +12,8 @@ import { ethers, Wallet, BaseContract, } from "ethers";
 import { ConfirmerOpStruct } from "../typechain-types/contracts/FirmChain";
 import { IFirmChain } from "../typechain-types";
 
+// TODO: Export typechain types
+
 export type Unpromised<T> = {
   [P in keyof T]: Awaited<T[P]>;
 }
@@ -53,9 +55,9 @@ export const InitConfirmerSet: ConfirmerSet = {
 };
 
 export type SignedBlock = Block & { signers: Wallet[] };
-export type ExtendedBlock = SignedBlock & {
-  contract?: IFirmChain
+export type ExtendedBlock = Block & {
   confirmerSet: ConfirmerSet,
+  contract?: IFirmChain,
+  signers?: Wallet[],
 }
-
 export type FullExtendedBlock = Required<ExtendedBlock>;
