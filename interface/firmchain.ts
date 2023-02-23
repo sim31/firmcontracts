@@ -1,6 +1,7 @@
 import {
-  Confirmer, ConfirmerOp, ConfirmerOpId, ExtendedBlock, isConfirmer, Message, SignedBlock,
-  Block, BlockHeader, ConfirmerSet, InitConfirmerSet, ZeroId, FullExtendedBlock,
+  Confirmer, ConfirmerOp, ConfirmerOpId, ExtendedBlock, isConfirmer, Message,
+  UnsignedBlock, BlockHeader, ConfirmerSet, InitConfirmerSet, ZeroId,
+  GenesisBlock, NoContractBlock,
 } from './types'
 import { Wallet, BaseContract } from 'ethers';
 import { normalizeHexStr, getBlockBodyId, getBlockId, sign, getConfirmerSetId, } from './abi';
@@ -16,7 +17,7 @@ export function createConfirmer(confWallet: Wallet, weight: number): Confirmer {
   };
 }
 
-export function createAddConfirmerOp(confWallet: Wallet, weight: number): ConfirmerOp;
+export function createAddConfirmerOp(confirmer: Wallet, weight: number): ConfirmerOp;
 export function createAddConfirmerOp(confirmer: Confirmer): ConfirmerOp;
 export function createAddConfirmerOp(confirmer: Confirmer | Wallet, weight?: number) {
   const conf = isConfirmer(confirmer) ? confirmer : createConfirmer(confirmer, weight ?? 0); 
@@ -91,14 +92,12 @@ export function updatedConfirmerSet(
   };
 }
 
-// IMPORTANT: Pass confirmer updates through confirmerOps instead of through messages
-export async function createBlock(
-  prevBlock: Required<ExtendedBlock>,
+export async function createUnsignedBlock(
+  prevBlock: ExtendedBlock,
   messages: Message[],
-  signers: Wallet[],
   confirmerOps?: ConfirmerOp[],
   newThreshold?: number,
-): Promise<FullExtendedBlock> {
+): Promise<UnsignedBlock> {
   const prevHeader = prevBlock.header;
 
   const confSet = updatedConfirmerSet(prevBlock.confirmerSet, confirmerOps, newThreshold);
@@ -116,14 +115,41 @@ export async function createBlock(
     timestamp: 0,
     sigs: []
   }
-  newHeader = await sign(signers, newHeader);
 
   return {
     contract: prevBlock.contract,
     header: newHeader,
     msgs: messages,
-    signers,
     confirmerSet: confSet,
+  };
+}
+
+
+// IMPORTANT: Pass confirmer updates through confirmerOps instead of through messages
+export async function createBlock(
+  prevBlock: ExtendedBlock,
+  messages: Message[],
+  signers: Wallet[],
+  confirmerOps?: ConfirmerOp[],
+  newThreshold?: number,
+): Promise<ExtendedBlock> {
+  const block = await createUnsignedBlock(prevBlock, messages, confirmerOps, newThreshold);
+  block.header = await sign(signers, block.header);
+  block.signers = signers;
+
+  return block as ExtendedBlock;
+}
+
+export async function signBlock(
+  block: UnsignedBlock,
+  signers: Wallet | Wallet[]
+): Promise<ExtendedBlock> {
+  const wallets = Array.isArray(signers) ? signers : [signers];
+  const newHeader = await sign(wallets, block.header);    
+  return {
+    ...block,
+    header: newHeader,
+    signers: wallets,
   };
 }
 
@@ -131,7 +157,7 @@ export async function createGenesisBlock(
   messages: Message[],
   confirmerOps?: ConfirmerOp[],
   newThreshold?: number,
-): Promise<ExtendedBlock> {
+): Promise<GenesisBlock> {
   const confSet = updatedConfirmerSet(InitConfirmerSet, confirmerOps, newThreshold);
 
   let newHeader: BlockHeader = {
@@ -146,11 +172,10 @@ export async function createGenesisBlock(
   return {
     header: newHeader,
     msgs: messages,
-    signers: [],
     confirmerSet: confSet,
   };
 }
 
-export async function createBlockTemplate(prevBlock: FullExtendedBlock) {
+export async function createBlockTemplate(prevBlock: ExtendedBlock) {
   return createBlock(prevBlock, [], []);
 }

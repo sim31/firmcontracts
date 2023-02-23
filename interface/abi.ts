@@ -1,6 +1,6 @@
 import { BytesLike, utils, Wallet, } from 'ethers';
 import {
-  Confirmer, Block, BlockHeader, Message, Signature, ZeroAddr, ZeroId, ConfirmerOutput, ConfirmerValue, isBlock, SignedBlock, ExtendedBlock,
+  Confirmer, Block, BlockHeader, Message, Signature, ConfirmerValue,
 
 } from './types';
 

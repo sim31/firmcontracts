@@ -4,11 +4,11 @@ import { ethers } from "hardhat";
 import { utils, Wallet } from "ethers";
 
 import * as abi from "./FirmChainAbiTests";
-import { Block, BlockHeader, Message, Confirmer, ConfirmerOp, ZeroId, FullExtendedBlock } from "../interface/types";
+import { Block, BlockHeader, Message, ConfirmerOp, ExtendedBlock, } from "../interface/types";
 import { decodeConfirmer, getBlockBodyId, getBlockId, getConfirmerSetId, normalizeHexStr, sign } from "../interface/abi";
 import {
   createAddConfirmerOp, createAddConfirmerOps, createRemoveConfirmerOp,
-  createBlock, createMsg, createGenesisBlock, createBlockTemplate, updatedConfirmerSet,
+  createBlock, createMsg, createGenesisBlock, createBlockTemplate, updatedConfirmerSet, createUnsignedBlock, signBlock,
 } from "../interface/firmchain";
 import { FirmChain } from "../typechain-types";
 
@@ -69,8 +69,8 @@ describe("FirmChain", function () {
 
     return {
       wallets, chain, implLib, abiLib, signers,
-      nextHeader: (await createBlockTemplate(genesisBl as FullExtendedBlock)).header,
-      genesisBl: genesisBl as FullExtendedBlock,
+      nextHeader: (await createBlockTemplate(genesisBl as ExtendedBlock)).header,
+      genesisBl: genesisBl as ExtendedBlock,
       confs: genesisBl.confirmerSet.confirmers,
       threshold: genesisBl.confirmerSet.threshold,
     };
@@ -357,7 +357,6 @@ describe("FirmChain", function () {
     });
 
     describe("Updating confirmer set", async function() {
-      // TODO: Should not work if confirmerSetId is not updated
       it(
         "Should allow firmchain to remove confirmers from its own confirmer set",
         async function() {
@@ -388,6 +387,61 @@ describe("FirmChain", function () {
       });
 
       it(
+        "Should allow firmchain to add confirmers to its own confirmer set",
+        async function() {
+          const { confs, chain, wallets, genesisBl } = await loadFixture(deployChain);
+
+          const confOps = [
+            createAddConfirmerOp(wallets[5], 1),
+            createAddConfirmerOp(wallets[6], 2),
+            createAddConfirmerOp(wallets[4], 2),
+          ];
+
+          const newBlock = await createBlock(
+            genesisBl,
+            [],
+            [wallets[0], wallets[1], wallets[2]],
+            confOps, 4,
+          );
+
+          await extConfirmByAll(chain, newBlock.signers, newBlock.header);
+          await expect(chain.finalize(newBlock.header)).to.not.be.reverted;
+
+          await expect(chain.execute(newBlock)).to.not.be.reverted;
+
+          const newConfSet = updatedConfirmerSet(genesisBl.confirmerSet, confOps, 4);
+          const confBytes = await chain.getConfirmers(); 
+          for (const [index, c] of confBytes.entries()) {
+            expect(decodeConfirmer(c)).to.containSubset(newConfSet.confirmers[index]);
+          }
+          expect(await chain.getThreshold()).to.be.equal(4);
+      });
+
+      it(
+        "Should allow firmchain to change threshold",
+        async function() {
+          const { confs, chain, wallets, genesisBl } = await loadFixture(deployChain);
+
+          const newBlock = await createBlock(
+            genesisBl,
+            [],
+            [wallets[0], wallets[1], wallets[2]],
+            [], 4,
+          );
+
+          await extConfirmByAll(chain, newBlock.signers, newBlock.header);
+          await expect(chain.finalize(newBlock.header)).to.not.be.reverted;
+
+          await expect(chain.execute(newBlock)).to.not.be.reverted;
+
+          const confBytes = await chain.getConfirmers(); 
+          for (const [index, c] of confBytes.entries()) {
+            expect(decodeConfirmer(c)).to.containSubset(confs[index]);
+          }
+          expect(await chain.getThreshold()).to.be.equal(4);
+      });
+
+      it(
         "Should fail if old confirmerSetId is specified in the block",
         async function() {
           const { confs, chain, wallets, genesisBl } = await loadFixture(deployChain);
@@ -396,19 +450,56 @@ describe("FirmChain", function () {
             createRemoveConfirmerOp(confs[0]),
           ];
 
-          const newBlock = await createBlock(
+          const newBlock = await createUnsignedBlock(
             genesisBl,
             [],
-            [wallets[0], wallets[1], wallets[2]],
             confOps, 2,
           );
           newBlock.header.confirmerSetId = genesisBl.header.confirmerSetId;
+          const newSignedBlock = await signBlock(newBlock, [wallets[0], wallets[1], wallets[2]]);
 
-          await extConfirmByAll(chain, newBlock.signers, newBlock.header);
-          await expect(chain.finalize(newBlock.header)).to.not.be.reverted;
 
-          await expect(chain.execute(newBlock)).to.not.be.reverted;
-          
+          await extConfirmByAll(chain, newSignedBlock.signers, newSignedBlock.header);
+          await expect(chain.finalize(newSignedBlock.header)).to.not.be.reverted;
+
+          await expect(chain.execute(newSignedBlock)).to.be.revertedWith(
+            "Confirmer set computed does not match declared",
+          );
+        })
+
+      it(
+        "Should fail if wrong confirmerSetId is specified in the block",
+        async function() {
+          const { confs, chain, wallets, genesisBl } = await loadFixture(deployChain);
+
+          const confOps1 = [
+            createRemoveConfirmerOp(confs[0]),
+            createAddConfirmerOp(wallets[5], 1),
+          ];
+          const confOps2 = [
+            createAddConfirmerOp(wallets[5], 1),
+          ];
+
+          const newBlock = await createUnsignedBlock(
+            genesisBl,
+            [],
+            confOps1, 3,
+          );
+          const newBlockAlt = await createUnsignedBlock(
+            genesisBl,
+            [],
+            confOps2, 3,
+          );
+          newBlock.header.confirmerSetId = newBlockAlt.header.confirmerSetId;
+          const newSignedBlock = await signBlock(newBlock, [wallets[0], wallets[1], wallets[2]]);
+
+
+          await extConfirmByAll(chain, newSignedBlock.signers, newSignedBlock.header);
+          await expect(chain.finalize(newSignedBlock.header)).to.not.be.reverted;
+
+          await expect(chain.execute(newSignedBlock)).to.be.revertedWith(
+            "Confirmer set computed does not match declared",
+          );
         })
 
     });

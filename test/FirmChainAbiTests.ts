@@ -29,7 +29,7 @@ export async function randomBlockHeaderSig3(): Promise<BlockHeader> {
   }
 }
 
-export async function createWallets(count: number = 6) {
+export async function createWallets(count: number = 8) {
   const wallets: Wallet[] = [];
   for (let i = 0; i < count; i++) {
     wallets.push(await ethers.Wallet.createRandom());
