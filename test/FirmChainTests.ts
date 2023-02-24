@@ -25,9 +25,10 @@ export async function createBlockAndExtConfirm(
   signers: Wallet[],
   confirmerOps?: ConfirmerOp[],
   newThreshold?: number,
+  ignoreConfirmerSetFail?: boolean,
 ): Promise<ExtendedBlock> {
   const newBlock = await createBlock(
-    prevBlock, messages, signers, confirmerOps, newThreshold
+    prevBlock, messages, signers, confirmerOps, newThreshold, ignoreConfirmerSetFail,
   );
   await extConfirmByAll(newBlock.contract, signers, newBlock);
   return newBlock;
@@ -39,9 +40,10 @@ export async function createBlockAndFinalize(
   signers: Wallet[],
   confirmerOps?: ConfirmerOp[],
   newThreshold?: number,
+  ignoreConfirmerSetFail?: boolean,
 ): Promise<ExtendedBlock> {
   const newBlock = await createBlockAndExtConfirm(
-    prevBlock, messages, signers, confirmerOps, newThreshold,
+    prevBlock, messages, signers, confirmerOps, newThreshold, ignoreConfirmerSetFail,
   );
   await expect(newBlock.contract.finalize(newBlock.header)).to.not.be.reverted;
   return newBlock;
@@ -53,9 +55,10 @@ export async function createBlockAndExecute(
   signers: Wallet[],
   confirmerOps?: ConfirmerOp[],
   newThreshold?: number,
+  ignoreConfirmerSetFail?: boolean,
 ): Promise<ExtendedBlock> {
   const newBlock = await createBlockAndExtConfirm(
-    prevBlock, messages, signers, confirmerOps, newThreshold,
+    prevBlock, messages, signers, confirmerOps, newThreshold, ignoreConfirmerSetFail,
   );
   await expect(newBlock.contract.finalizeAndExecute(newBlock)).to.not.be.reverted;
   return newBlock;
@@ -486,6 +489,65 @@ describe("FirmChain", function () {
           }
           expect(await chain.getThreshold()).to.be.equal(4);
       });
+
+      it(
+        "Should not allow firmchain to add confirmers which already exist",
+        async function() {
+          const { chain, wallets, genesisBl } = await loadFixture(deployChain);
+
+          const confOps = [
+            createAddConfirmerOp(wallets[5], 1),
+            createAddConfirmerOp(wallets[6], 2),
+            createAddConfirmerOp(wallets[1], 1),
+          ];
+
+          await expect(createBlockAndFinalize(
+            genesisBl,
+            [],
+            [wallets[0], wallets[1], wallets[2]],
+            confOps, 4,
+          )).to.be.rejectedWith("Cannot add a confirmer which already exists");
+
+          const block = await createBlockAndFinalize(
+            genesisBl,
+            [],
+            [wallets[0], wallets[1], wallets[2]],
+            confOps, 4,
+            true
+          );
+
+          await expect(chain.execute(block)).to.emit(chain, 'ExternalCallFail');
+      });
+
+      it(
+        "Should not allow to remove confirmers which are not present",
+        async function() {
+          const { chain, wallets, genesisBl } = await loadFixture(deployChain);
+
+          const confOps = [
+            createAddConfirmerOp(wallets[5], 1),
+            createAddConfirmerOp(wallets[6], 2),
+            createRemoveConfirmerOp(wallets[7], 2),
+          ];
+
+          await expect(createBlockAndFinalize(
+            genesisBl,
+            [],
+            [wallets[0], wallets[1], wallets[2]],
+            confOps, 4,
+          )).to.be.rejectedWith("Trying to remove a non existing confirmer");
+
+          const block = await createBlockAndFinalize(
+            genesisBl,
+            [],
+            [wallets[0], wallets[1], wallets[2]],
+            confOps, 4,
+            true
+          );
+
+          await expect(chain.execute(block)).to.emit(chain, "ExternalCallFail");
+        }
+      )
 
       it(
         "Should allow firmchain to change threshold",

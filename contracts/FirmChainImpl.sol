@@ -144,9 +144,15 @@ library FirmChainImpl {
     ) private {
         for (uint i = 0; i < ops.length; i++) {
             if (ops[i].opId == ConfirmerOpId.REMOVE) {
-                chain._confirmerSet.removeConfirmer(ops[i].conf);
+                require(
+                    chain._confirmerSet.removeConfirmer(ops[i].conf),
+                    "Can only remove existing confirmer"
+                );
             } else if (ops[i].opId == ConfirmerOpId.ADD) {
-                chain._confirmerSet.addConfirmer(ops[i].conf);
+                require(
+                    chain._confirmerSet.addConfirmer(ops[i].conf),
+                    "Cannot add a confirmer which is already there"
+                );
             }
         }
         chain._confirmerSet.setConfirmerThreshold(threshold);

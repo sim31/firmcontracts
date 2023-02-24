@@ -6,6 +6,7 @@ import {
 import { Wallet, BaseContract } from 'ethers';
 import { normalizeHexStr, getBlockBodyId, getBlockId, sign, getConfirmerSetId, } from './abi';
 import { IFirmChain } from '../typechain-types';
+import { boolean } from 'hardhat/internal/core/params/argumentTypes';
 
 export function createAddConfirmerOps(confs: Confirmer[]): ConfirmerOp[] {
   return confs.map(conf => { return {opId:  ConfirmerOpId.Add, conf} });
@@ -67,6 +68,10 @@ export function updatedConfirmerSet(
     confs = [...confirmerSet.confirmers];
     for (const op of confirmerOps) {
       if (op.opId === ConfirmerOpId.Add) {
+        const index = confs.findIndex(conf => conf.addr === op.conf.addr && conf.weight === op.conf.weight);
+        if (index !== -1) {
+          throw Error("Cannot add a confirmer which already exists");
+        }
         confs.push(op.conf);
       } else if (op.opId === ConfirmerOpId.Remove) {
         const toDeleteIndex = confs.findIndex(conf => conf.addr === op.conf.addr && conf.weight === op.conf.weight);
@@ -97,10 +102,19 @@ export async function createUnsignedBlock(
   messages: Message[],
   confirmerOps?: ConfirmerOp[],
   newThreshold?: number,
+  ignoreConfirmerSetFail?: boolean,
 ): Promise<UnsignedBlock> {
   const prevHeader = prevBlock.header;
 
-  const confSet = updatedConfirmerSet(prevBlock.confirmerSet, confirmerOps, newThreshold);
+  let confSet = prevBlock.confirmerSet;
+  try {
+    confSet = updatedConfirmerSet(prevBlock.confirmerSet, confirmerOps, newThreshold);
+  } catch(err) {
+    if (!ignoreConfirmerSetFail) {
+      throw err;
+    }
+  }
+
   if (newThreshold || confirmerOps) {
     messages.push(
       createMsg(prevBlock.contract, 'updateConfirmerSet', [confirmerOps ?? [], confSet.threshold])
@@ -132,8 +146,9 @@ export async function createBlock(
   signers: Wallet[],
   confirmerOps?: ConfirmerOp[],
   newThreshold?: number,
+  ignoreConfirmerSetFail?: boolean,
 ): Promise<ExtendedBlock> {
-  const block = await createUnsignedBlock(prevBlock, messages, confirmerOps, newThreshold);
+  const block = await createUnsignedBlock(prevBlock, messages, confirmerOps, newThreshold, ignoreConfirmerSetFail);
   block.header = await sign(signers, block.header);
   block.signers = signers;
 
