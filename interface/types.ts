@@ -11,13 +11,9 @@ import {
 import { IFirmChain } from "../typechain-types/contracts/IFirmChain";
 import { ethers, Wallet, BaseContract, } from "ethers";
 import { ConfirmerOpStruct, } from "../typechain-types/contracts/FirmChain";
-import { Optional } from "utility-types";
+import { Optional, Overwrite } from "utility-types";
 
-export {
-  IFirmChain, IssuedNTT, IssuedToken, Directory, FirmChainAbi, FirmChainImpl, FirmChain,
-  FirmChain__factory, FirmChainAbi__factory, FirmChainImpl__factory,
-  IssuedNTT__factory, IssuedToken__factory, Directory__factory,
-} from "../typechain-types";
+export * from "../typechain-types";
 
 export type AddressStr = string;
 
@@ -36,7 +32,13 @@ export type ConfirmerOp = ConfirmerOpStruct;
 
 export type ConfirmerOutput = ConfirmerStructOutput;
 
-export type ConfirmerValue = Unpromised<ConfirmerStruct>;
+export type ConfirmerValue = 
+  Overwrite<Unpromised<ConfirmerStruct>, { weight: number }>;
+export type BlockValue = Unpromised<Block>;
+export type BlockHeaderValue = Unpromised<BlockHeader>;
+export type MessageValue = Unpromised<Message>;
+export type SignatureValue = Unpromised<Signature>
+export type ConfirmerOpValue = Unpromised<ConfirmerOp>;
 
 export const ZeroId = ethers.constants.HashZero;
 export const ZeroAddr = ethers.constants.AddressZero;
