@@ -6,12 +6,20 @@ import {
   BlockHeaderStruct,
   BlockHeaderStructOutput,
   MessageStruct,
-  SignatureStruct
+  SignatureStruct,
 } from "../typechain-types/contracts/FirmChainAbi";
+import { IFirmChain } from "../typechain-types/contracts/IFirmChain";
 import { ethers, Wallet, BaseContract, } from "ethers";
-import { ConfirmerOpStruct } from "../typechain-types/contracts/FirmChain";
-import { IFirmChain } from "../typechain-types";
+import { ConfirmerOpStruct, } from "../typechain-types/contracts/FirmChain";
 import { Optional } from "utility-types";
+
+export {
+  IFirmChain, IssuedNTT, IssuedToken, Directory, FirmChainAbi, FirmChainImpl, FirmChain,
+  FirmChain__factory, FirmChainAbi__factory, FirmChainImpl__factory,
+  IssuedNTT__factory, IssuedToken__factory, Directory__factory,
+} from "../typechain-types";
+
+export type AddressStr = string;
 
 // TODO: Export typechain types
 
