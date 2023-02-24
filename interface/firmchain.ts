@@ -1,11 +1,11 @@
 import {
   Confirmer, ConfirmerOp, ConfirmerOpId, ExtendedBlock, isConfirmer, Message,
   UnsignedBlock, BlockHeader, ConfirmerSet, InitConfirmerSet, ZeroId,
-  GenesisBlock, NoContractBlock,
+  GenesisBlock, NoContractBlock, ConfirmerValue,
 } from './types'
 import { Wallet, BaseContract } from 'ethers';
-import { normalizeHexStr, getBlockBodyId, getBlockId, sign, getConfirmerSetId, } from './abi';
-import { IFirmChain } from '../typechain-types';
+import { normalizeHexStr, getBlockBodyId, getBlockId, sign, getConfirmerSetId, decodeConfirmer, } from './abi';
+import { FirmChain, IFirmChain } from '../typechain-types';
 import { boolean } from 'hardhat/internal/core/params/argumentTypes';
 
 export function createAddConfirmerOps(confs: Confirmer[]): ConfirmerOp[] {
@@ -193,4 +193,9 @@ export async function createGenesisBlock(
 
 export async function createBlockTemplate(prevBlock: ExtendedBlock) {
   return createBlock(prevBlock, [], []);
+}
+
+export async function getConfirmers(contract: FirmChain): Promise<ConfirmerValue[]> {
+  const confBytes = await contract.getConfirmers();
+  return confBytes.map(bytes => decodeConfirmer(bytes));
 }
