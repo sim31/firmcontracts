@@ -11,7 +11,9 @@ import {
 import { IFirmChain } from "../typechain-types/contracts/IFirmChain";
 import { ethers, Wallet, BaseContract, } from "ethers";
 import { ConfirmerOpStruct, } from "../typechain-types/contracts/FirmChain";
-import { Optional, Overwrite } from "utility-types";
+import { Optional, Overwrite, ValuesType } from "utility-types";
+import { string } from "hardhat/internal/core/params/argumentTypes";
+import { PromiseOrValue } from "../typechain-types/common";
 
 export * from "../typechain-types";
 
@@ -20,8 +22,20 @@ export type AddressStr = string;
 // TODO: Export typechain types
 
 export type Unpromised<T> = {
-  [P in keyof T]: Awaited<T[P]>;
+  [P in keyof T]:
+    T[P] extends object ?
+      T[P] extends Array<infer V> ?
+        Array<Unpromised<V>> :
+      Unpromised<T[P]> :
+    Awaited<T[P]>;
 }
+
+// 
+// export type UnpromisedDeep1<T> = {
+//   [P in keyof T]:
+//     T[P] extends Array<any> ?
+//       Array<Unpromised<ValuesType<T[P]>>> : Unpromised<T[P]>;
+// }
 
 export type Confirmer = ConfirmerStruct;
 export type Block = BlockStruct;
@@ -34,6 +48,7 @@ export type ConfirmerOutput = ConfirmerStructOutput;
 
 export type ConfirmerValue = 
   Overwrite<Unpromised<ConfirmerStruct>, { weight: number }>;
+
 export type BlockValue = Unpromised<Block>;
 export type BlockHeaderValue = Unpromised<BlockHeader>;
 export type MessageValue = Unpromised<Message>;
@@ -73,3 +88,21 @@ export type ExtendedBlock = Block & {
 export type UnsignedBlock = Optional<ExtendedBlock, 'signers'>;
 export type NoContractBlock = Optional<ExtendedBlock, 'contract'>;
 export type GenesisBlock = Optional<ExtendedBlock, 'signers' | 'contract'>;
+
+export type ExtendedBlockValue = Unpromised<ExtendedBlock>;
+export type UnsignedBlockValue = Unpromised<UnsignedBlock>;
+export type NoContractBlockValue = Unpromised<NoContractBlock>;
+export type GenesisBlockValue = Unpromised<GenesisBlock>;
+
+export async function toValue<T extends {}>(promisedStruct: T): Promise<Unpromised<T>> {
+  const obj: Record<string, unknown> = {};
+  const entries = Object.entries(promisedStruct);
+  for (const [key, val] of entries) {
+    if (typeof val === 'object' && val !== null) {
+      obj[key] = await toValue(val);
+    } else {
+      obj[key] = await Promise.resolve(val);        
+    }
+  }
+  return obj as Unpromised<T>;
+}

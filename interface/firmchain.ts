@@ -1,7 +1,7 @@
 import {
   Confirmer, ConfirmerOp, ConfirmerOpId, ExtendedBlock, isConfirmer, Message,
   UnsignedBlock, BlockHeader, ConfirmerSet, InitConfirmerSet, ZeroId,
-  GenesisBlock, NoContractBlock, ConfirmerValue,
+  GenesisBlock, NoContractBlock, ConfirmerValue, GenesisBlockValue, toValue,
 } from './types'
 import { Wallet, BaseContract } from 'ethers';
 import { normalizeHexStr, getBlockBodyId, getBlockId, sign, getConfirmerSetId, decodeConfirmer, } from './abi';
@@ -189,6 +189,9 @@ export async function createGenesisBlock(
     msgs: messages,
     confirmerSet: confSet,
   };
+}
+export async function createGenesisBlockVal(...args: Parameters<typeof createGenesisBlock>): Promise<GenesisBlockValue> {
+  return await toValue(await createGenesisBlock(...args));
 }
 
 export async function createBlockTemplate(prevBlock: ExtendedBlock) {
