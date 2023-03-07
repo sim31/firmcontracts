@@ -4,7 +4,7 @@ import { ethers } from "hardhat";
 import { utils, Wallet } from "ethers";
 
 import * as abi from "./FirmChainAbiTests";
-import { Block, BlockHeader, Message, ConfirmerOp, ExtendedBlock, isBlock, ZeroId, } from "../interface/types";
+import { Block, BlockHeader, Message, ConfirmerOp, ExtendedBlock, isBlock, ZeroId, ConfirmerOpValue, } from "../interface/types";
 import { decodeConfirmer, getBlockBodyId, getBlockId, getConfirmerSetId, normalizeHexStr, randomBytes32, randomBytes32Hex, sign } from "../interface/abi";
 import {
   createAddConfirmerOp, createAddConfirmerOps, createRemoveConfirmerOp,
@@ -23,7 +23,7 @@ export async function createBlockAndExtConfirm(
   prevBlock: ExtendedBlock,
   messages: Message[],
   signers: Wallet[],
-  confirmerOps?: ConfirmerOp[],
+  confirmerOps?: ConfirmerOpValue[],
   newThreshold?: number,
   ignoreConfirmerSetFail?: boolean,
 ): Promise<ExtendedBlock> {
@@ -38,7 +38,7 @@ export async function createBlockAndFinalize(
   prevBlock: ExtendedBlock,
   messages: Message[],
   signers: Wallet[],
-  confirmerOps?: ConfirmerOp[],
+  confirmerOps?: ConfirmerOpValue[],
   newThreshold?: number,
   ignoreConfirmerSetFail?: boolean,
 ): Promise<ExtendedBlock> {
@@ -53,7 +53,7 @@ export async function createBlockAndExecute(
   prevBlock: ExtendedBlock,
   messages: Message[],
   signers: Wallet[],
-  confirmerOps?: ConfirmerOp[],
+  confirmerOps?: ConfirmerOpValue[],
   newThreshold?: number,
   ignoreConfirmerSetFail?: boolean,
 ): Promise<ExtendedBlock> {
@@ -99,7 +99,7 @@ describe("FirmChain", function () {
     );
 
     // TODO: need to create my own signers (so that I can sign block digests not just eth txs)
-    const confOps: ConfirmerOp[] = [
+    const confOps: ConfirmerOpValue[] = [
       createAddConfirmerOp(wallets[0], 1),
       createAddConfirmerOp(wallets[1], 1),
       createAddConfirmerOp(wallets[2], 1),
@@ -117,8 +117,8 @@ describe("FirmChain", function () {
       wallets, chain, implLib, abiLib, signers,
       nextHeader: (await createBlockTemplate(genesisBl as ExtendedBlock)).header,
       genesisBl: genesisBl as ExtendedBlock,
-      confs: genesisBl.confirmerSet.confirmers,
-      threshold: genesisBl.confirmerSet.threshold,
+      confs: genesisBl.state.confirmerSet.confirmers,
+      threshold: genesisBl.state.confirmerSet.threshold,
     };
   }
 
@@ -451,7 +451,7 @@ describe("FirmChain", function () {
 
           await expect(chain.execute(newBlock)).to.not.be.reverted;
 
-          const newConfSet = updatedConfirmerSet(genesisBl.confirmerSet, confOps, 2);
+          const newConfSet = updatedConfirmerSet(genesisBl.state.confirmerSet, confOps, 2);
           const confBytes = await chain.getConfirmers(); 
           for (const [index, c] of confBytes.entries()) {
             expect(decodeConfirmer(c)).to.containSubset(newConfSet.confirmers[index]);
@@ -482,7 +482,7 @@ describe("FirmChain", function () {
 
           await expect(chain.execute(newBlock)).to.not.be.reverted;
 
-          const newConfSet = updatedConfirmerSet(genesisBl.confirmerSet, confOps, 4);
+          const newConfSet = updatedConfirmerSet(genesisBl.state.confirmerSet, confOps, 4);
           const confBytes = await chain.getConfirmers(); 
           for (const [index, c] of confBytes.entries()) {
             expect(decodeConfirmer(c)).to.containSubset(newConfSet.confirmers[index]);

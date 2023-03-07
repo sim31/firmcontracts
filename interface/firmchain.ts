@@ -1,10 +1,10 @@
 import {
   Confirmer, ConfirmerOp, ConfirmerOpId, ExtendedBlock, isConfirmer, Message,
   UnsignedBlock, BlockHeader, ConfirmerSet, InitConfirmerSet, ZeroId,
-  GenesisBlock, NoContractBlock, ConfirmerValue, GenesisBlockValue, toValue,
+  GenesisBlock, NoContractBlock, ConfirmerValue, GenesisBlockValue, toValue, ConfirmerOpValue, ExtendedBlockValue, OptExtendedBlockValue,
 } from './types'
 import { Wallet, BaseContract } from 'ethers';
-import { normalizeHexStr, getBlockBodyId, getBlockId, sign, getConfirmerSetId, decodeConfirmer, } from './abi';
+import { normalizeHexStr, getBlockBodyId, getBlockId, sign, getConfirmerSetId, decodeConfirmer, getCurrentTimestamp, } from './abi';
 import { FirmChain, IFirmChain } from '../typechain-types';
 import { boolean } from 'hardhat/internal/core/params/argumentTypes';
 
@@ -12,15 +12,15 @@ export function createAddConfirmerOps(confs: Confirmer[]): ConfirmerOp[] {
   return confs.map(conf => { return {opId:  ConfirmerOpId.Add, conf} });
 }
 
-export function createConfirmer(confWallet: Wallet, weight: number): Confirmer {
+export function createConfirmer(confWallet: Wallet, weight: number): ConfirmerValue {
   return {
     addr: normalizeHexStr(confWallet.address), weight,
   };
 }
 
-export function createAddConfirmerOp(confirmer: Wallet, weight: number): ConfirmerOp;
-export function createAddConfirmerOp(confirmer: Confirmer): ConfirmerOp;
-export function createAddConfirmerOp(confirmer: Confirmer | Wallet, weight?: number) {
+export function createAddConfirmerOp(confirmer: Wallet, weight: number): ConfirmerOpValue;
+export function createAddConfirmerOp(confirmer: ConfirmerValue): ConfirmerOpValue;
+export function createAddConfirmerOp(confirmer: ConfirmerValue | Wallet, weight?: number) {
   const conf = isConfirmer(confirmer) ? confirmer : createConfirmer(confirmer, weight ?? 0); 
   const op: ConfirmerOp = {
     opId: ConfirmerOpId.Add,
@@ -29,9 +29,9 @@ export function createAddConfirmerOp(confirmer: Confirmer | Wallet, weight?: num
   return op;
 }
 
-export function createRemoveConfirmerOp(confWallet: Wallet, weight: number): ConfirmerOp;
-export function createRemoveConfirmerOp(confirmer: Confirmer): ConfirmerOp;
-export function createRemoveConfirmerOp(confirmer: Wallet | Confirmer, weight?: number) {
+export function createRemoveConfirmerOp(confWallet: Wallet, weight: number): ConfirmerOpValue;
+export function createRemoveConfirmerOp(confirmer: ConfirmerValue): ConfirmerOpValue;
+export function createRemoveConfirmerOp(confirmer: Wallet | ConfirmerValue, weight?: number) {
   const conf = isConfirmer(confirmer) ? confirmer : createConfirmer(confirmer, weight ?? 0); 
   const op: ConfirmerOp = {
     opId: ConfirmerOpId.Remove,
@@ -59,7 +59,7 @@ export function createMsg<
 
 export function updatedConfirmerSet(
   confirmerSet: Readonly<ConfirmerSet>,
-  confirmerOps?: Readonly<ConfirmerOp[]>,
+  confirmerOps?: Readonly<ConfirmerOpValue[]>,
   newThreshold?: number,
 ): ConfirmerSet {
   // Update a list of confirmers
@@ -100,15 +100,15 @@ export function updatedConfirmerSet(
 export async function createUnsignedBlock(
   prevBlock: ExtendedBlock,
   messages: Message[],
-  confirmerOps?: ConfirmerOp[],
+  confirmerOps?: ConfirmerOpValue[],
   newThreshold?: number,
   ignoreConfirmerSetFail?: boolean,
 ): Promise<UnsignedBlock> {
   const prevHeader = prevBlock.header;
 
-  let confSet = prevBlock.confirmerSet;
+  let confSet = prevBlock.state.confirmerSet;
   try {
-    confSet = updatedConfirmerSet(prevBlock.confirmerSet, confirmerOps, newThreshold);
+    confSet = updatedConfirmerSet(prevBlock.state.confirmerSet, confirmerOps, newThreshold);
   } catch(err) {
     if (!ignoreConfirmerSetFail) {
       throw err;
@@ -126,7 +126,7 @@ export async function createUnsignedBlock(
     blockBodyId: getBlockBodyId(messages),
     confirmerSetId: await getConfirmerSetId(confSet.confirmers, confSet.threshold),
     // TODO: Set current time
-    timestamp: 0,
+    timestamp: getCurrentTimestamp(),
     sigs: []
   }
 
@@ -134,7 +134,11 @@ export async function createUnsignedBlock(
     contract: prevBlock.contract,
     header: newHeader,
     msgs: messages,
-    confirmerSet: confSet,
+    state: {
+      confirmerSet: confSet,
+      blockNum: prevBlock.state.blockNum + 1,
+      blockId: getBlockId(newHeader),
+    },
   };
 }
 
@@ -144,7 +148,7 @@ export async function createBlock(
   prevBlock: ExtendedBlock,
   messages: Message[],
   signers: Wallet[],
-  confirmerOps?: ConfirmerOp[],
+  confirmerOps?: ConfirmerOpValue[],
   newThreshold?: number,
   ignoreConfirmerSetFail?: boolean,
 ): Promise<ExtendedBlock> {
@@ -170,7 +174,7 @@ export async function signBlock(
 
 export async function createGenesisBlock(
   messages: Message[],
-  confirmerOps?: ConfirmerOp[],
+  confirmerOps?: ConfirmerOpValue[],
   newThreshold?: number,
 ): Promise<GenesisBlock> {
   const confSet = updatedConfirmerSet(InitConfirmerSet, confirmerOps, newThreshold);
@@ -180,18 +184,27 @@ export async function createGenesisBlock(
     blockBodyId: getBlockBodyId(messages),
     confirmerSetId: await getConfirmerSetId(confSet.confirmers, confSet.threshold),
     // TODO: Set current time
-    timestamp: 0,
+    timestamp: getCurrentTimestamp(),
     sigs: []
   }
 
   return {
     header: newHeader,
     msgs: messages,
-    confirmerSet: confSet,
+    state: {
+      confirmerSet: confSet,
+      blockNum: 0,
+      blockId: getBlockId(newHeader),
+    },
   };
 }
 export async function createGenesisBlockVal(...args: Parameters<typeof createGenesisBlock>): Promise<GenesisBlockValue> {
-  return await toValue(await createGenesisBlock(...args));
+  const values = await toValue(await createGenesisBlock(...args));
+  return {
+    ...values,
+    contract: values.contract?.address,
+    signers: values.signers?.map(s => s.address),
+  };
 }
 
 export async function createBlockTemplate(prevBlock: ExtendedBlock) {
@@ -201,4 +214,35 @@ export async function createBlockTemplate(prevBlock: ExtendedBlock) {
 export async function getConfirmers(contract: FirmChain): Promise<ConfirmerValue[]> {
   const confBytes = await contract.getConfirmers();
   return confBytes.map(bytes => decodeConfirmer(bytes));
+}
+
+export function withConfirmInfo(
+  prevBlock: OptExtendedBlockValue,
+  block: OptExtendedBlockValue
+): OptExtendedBlockValue {
+  const b = { ...block };    
+  b.state.confirmCount = 0;
+  b.state.totalWeight = 0;
+  for (const conf of prevBlock.state.confirmerSet.confirmers) {
+    if (b.signers?.find(s => s === conf.addr)) {
+      b.state.confirmCount++;
+    }
+    b.state.totalWeight += conf.weight;
+  }
+  b.state.thresholdThis = b.state.confirmerSet.threshold;
+
+  return b;
+}
+
+// Returns all blocks except oldest (cause we don't know its confirm info)
+export function blocksWithConfirmInfo(
+  blocks: OptExtendedBlockValue[] // 0th - oldest, last - newest
+): OptExtendedBlockValue[] {
+  const bs = new Array<OptExtendedBlockValue>();
+  let index = 1;
+  while (index < blocks.length) {
+    bs.push(withConfirmInfo(blocks[index-1], blocks[index]));
+    index++;
+  }
+  return bs;
 }

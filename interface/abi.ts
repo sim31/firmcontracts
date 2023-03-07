@@ -131,3 +131,7 @@ export function getBlockDigest(header: BlockHeader): string {
 export function getBlockId(header: BlockHeader) {
   return utils.keccak256(encodeHeader(header));
 }
+
+export function getCurrentTimestamp() {
+  return Math.trunc(Date.now() / 1000);
+}
