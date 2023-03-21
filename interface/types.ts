@@ -70,8 +70,8 @@ export function isBlock(bl: BlockHeader | Block): bl is Block {
   return 'header' in bl;
 }
 
-export function isConfirmer(conf: Confirmer | Wallet): conf is Confirmer {
-  return 'addr' in conf && 'weight' in conf;
+export function isConfirmer(conf: Confirmer | Wallet | AddressStr): conf is Confirmer {
+  return typeof conf === 'object' && 'addr' in conf && 'weight' in conf;
 }
 
 export interface ConfirmerSet {
