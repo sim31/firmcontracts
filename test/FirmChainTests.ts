@@ -87,7 +87,10 @@ describe("FirmChain", function () {
     return { signers, implLib, abiLib };
   }
 
-  async function deployChain(wallets: Wallet[] | AddressStr[], implLib: FirmChainImpl) {
+  async function deployChain(
+    wallets: Wallet[] | AddressStr[],
+    threshold: number,
+    implLib: FirmChainImpl) {
     const factory = await ethers.getContractFactory(
       "FirmChain",
       {
@@ -98,7 +101,6 @@ describe("FirmChain", function () {
     const confOps: ConfirmerOpValue[] = wallets.map((wallet) => {
       return createAddConfirmerOp(wallet, 1);
     });
-    const threshold = 3;
     const genesisBl = await createGenesisBlock([], confOps, threshold);
 
     const deployCall = factory.deploy(genesisBl, confOps, threshold);
@@ -119,7 +121,7 @@ describe("FirmChain", function () {
     const { implLib, abiLib, signers } = await loadFixture(deployImplLib);
     const wallets = await abi.createWallets();
 
-    const r = await deployChain(wallets.slice(0, 4), implLib);
+    const r = await deployChain(wallets.slice(0, 4), 3, implLib);
 
     return {
       ...r, abiLib, signers,
@@ -131,15 +133,15 @@ describe("FirmChain", function () {
     const { implLib, abiLib, signers } = await loadFixture(deployImplLib);
     const wallets = await abi.createWallets(16);
 
-    const chain1 = await deployChain(wallets.slice(0, 4), implLib);
-    const chain2 = await deployChain(wallets.slice(4, 8), implLib);
-    const chain3 = await deployChain(wallets.slice(8, 12), implLib);
+    const chain1 = await deployChain(wallets.slice(0, 4), 3, implLib);
+    const chain2 = await deployChain(wallets.slice(4, 8), 3, implLib);
+    const chain3 = await deployChain(wallets.slice(8, 12), 3, implLib);
 
     const ord2Chain = await deployChain([
       chain1.chain.address,
       chain2.chain.address,
       chain3.chain.address,
-    ], implLib);
+    ], 2, implLib);
 
     return {
       chain1, chain2, chain3,
@@ -325,57 +327,155 @@ describe("FirmChain", function () {
   });
 
   describe("confirm", async function() {
-    it("Should record a confirmation from external account", async function() {
-      const { ord2Chain, signers } = await loadFixture(deploy2ndOrderChain);
-      const { chain, genesisBl } = ord2Chain;
+    describe("Confirmations from external accounts", async function() {
+      it("Should record a confirmation from external account", async function() {
+        const { ord2Chain, signers } = await loadFixture(deploy2ndOrderChain);
+        const { chain, genesisBl } = ord2Chain;
 
-      const block = await createBlock(genesisBl, [], []);
+        const block = await createBlock(genesisBl, [], []);
 
-      await expect(chain.connect(signers[0]).confirm(block.header)).to.not.be.reverted;
+        await expect(chain.connect(signers[0]).confirm(block.header)).to.not.be.reverted;
 
-      expect(await chain.isConfirmedBy(getBlockId(block.header), signers[0].address)).to.be.true;
-    });
+        expect(await chain.isConfirmedBy(getBlockId(block.header), signers[0].address)).to.be.true;
+      });
 
-    it("Should fail if trying to confirm the same block twice", async function() {
-      const { ord2Chain, signers } = await loadFixture(deploy2ndOrderChain);
-      const { chain, genesisBl } = ord2Chain;
+      it("Should fail if trying to confirm the same block twice", async function() {
+        const { ord2Chain, signers } = await loadFixture(deploy2ndOrderChain);
+        const { chain, genesisBl } = ord2Chain;
 
-      const block = await createBlock(genesisBl, [], []);
+        const block = await createBlock(genesisBl, [], []);
 
-      await expect(chain.connect(signers[0]).confirm(block.header)).to.not.be.reverted;
+        await expect(chain.connect(signers[0]).confirm(block.header)).to.not.be.reverted;
 
-      await expect(chain.connect(signers[0]).confirm(block.header)).to.be.revertedWith("Block already confirmed by this confirmer");
-    });
+        await expect(chain.connect(signers[0]).confirm(block.header)).to.be.revertedWith("Block already confirmed by this confirmer");
+      });
 
-    it("Should fail if trying to confirm a block on top of non-finalized block", async function() {
-      const { ord2Chain, signers } = await loadFixture(deploy2ndOrderChain);
-      const { chain, genesisBl } = ord2Chain;
+      it("Should fail if trying to confirm a block on top of non-finalized block", async function() {
+        const { ord2Chain, signers } = await loadFixture(deploy2ndOrderChain);
+        const { chain, genesisBl } = ord2Chain;
 
-      const block = await createBlock(genesisBl, [], []);
+        const block = await createBlock(genesisBl, [], []);
 
-      await expect(chain.connect(signers[0]).confirm(block.header)).to.not.be.reverted;
+        await expect(chain.connect(signers[0]).confirm(block.header)).to.not.be.reverted;
 
-      const block2 = await createBlock(block, [], []);
+        const block2 = await createBlock(block, [], []);
 
-      await expect(chain.connect(signers[0]).confirm(block2.header)).to.be.revertedWith(
-        "Previous block has to be finalized."
-      );
-    });
+        await expect(chain.connect(signers[0]).confirm(block2.header)).to.be.revertedWith(
+          "Previous block has to be finalized."
+        );
+      });
 
-    it("Should emit confirmerFault event if trying to confirm two conflicting blocks", async function() {
-      const { ord2Chain, signers } = await loadFixture(deploy2ndOrderChain);
-      const { chain, genesisBl } = ord2Chain;
+      it("Should emit confirmerFault event if trying to confirm two conflicting blocks", async function() {
+        const { ord2Chain, signers } = await loadFixture(deploy2ndOrderChain);
+        const { chain, genesisBl } = ord2Chain;
 
-      const block = await createBlock(genesisBl, [], []);
-      const altBlock = await createBlock(genesisBl, [], [], [createAddConfirmerOp(signers[0].address, 1)]);
+        const block = await createBlock(genesisBl, [], []);
+        const altBlock = await createBlock(genesisBl, [], [], [createAddConfirmerOp(signers[0].address, 1)]);
 
-      await expect(chain.connect(signers[0]).confirm(block.header)).to.not.be.reverted;
+        await expect(chain.connect(signers[0]).confirm(block.header)).to.not.be.reverted;
 
-      await expect(chain.connect(signers[0]).confirm(altBlock.header)).to.emit(chain, "ByzantineFault");
-    });
+        await expect(chain.connect(signers[0]).confirm(altBlock.header)).to.emit(chain, "ByzantineFault");
+      });
 
     // TODO: Confirmer should not be able to confirm after he's marked as faulty
+    });
 
+    it("Should record a confirmation from another firmchain", async function() {
+      const { chain1, ord2Chain, wallets } = await loadFixture(deploy2ndOrderChain);
+      
+      const block = await createBlock(ord2Chain.genesisBl, [], []);
+
+      expect(await ord2Chain.chain.isConfirmedBy(getBlockId(block.header), chain1.chain.address)).to.be.false;
+
+      const chain1Bl = await createBlockAndFinalize(
+        chain1.genesisBl,
+        [createMsg(ord2Chain.chain, 'confirm', [block.header])],
+        [wallets[0], wallets[1], wallets[2], wallets[3]],
+      );
+
+      expect(await ord2Chain.chain.isConfirmedBy(getBlockId(block.header), chain1.chain.address)).to.be.false;
+
+      await expect(chain1.chain.execute(chain1Bl)).to.not.be.reverted;
+
+      expect(await ord2Chain.chain.isConfirmedBy(getBlockId(block.header), chain1.chain.address)).to.be.true;
+    });
+
+    it('Should emit confirmer fault if it tries to confirm a block which conflicts with finalized block', async () => {
+      const { chain1, chain2, chain3, ord2Chain, wallets } = await loadFixture(deploy2ndOrderChain);
+
+      const block = await createBlock(ord2Chain.genesisBl, [], []);
+
+      await createBlockAndExecute(
+        chain1.genesisBl,
+        [createMsg(ord2Chain.chain, 'confirm', [block.header])],
+        [wallets[0], wallets[1], wallets[2], wallets[3]],
+      );
+      await createBlockAndExecute(
+        chain2.genesisBl,
+        [createMsg(ord2Chain.chain, 'confirm', [block.header])],
+        [wallets[4], wallets[5], wallets[6], wallets[7]],
+      );
+
+      await expect(ord2Chain.chain.finalize(block.header)).to.not.be.reverted;
+
+      const altBlock = await createBlock(ord2Chain.genesisBl, [], [], [
+        createAddConfirmerOp(wallets[0].address, 1)
+      ]);
+      const chain3Bl = await createBlockAndFinalize(
+        chain3.genesisBl,
+        [createMsg(ord2Chain.chain, 'confirm', [altBlock.header])],
+        [wallets[8], wallets[10], wallets[11]],
+      );
+
+      await expect(chain3.chain.execute(chain3Bl)).to.emit(ord2Chain.chain, 'ByzantineFault');
+    });
+
+    it('Should not record confirmations from faulty firmchains', async () => {
+      const { chain1, chain2, chain3, ord2Chain, wallets } = await loadFixture(deploy2ndOrderChain);
+
+      const block = await createBlock(ord2Chain.genesisBl, [], []);
+
+      const chain1Bl = await createBlockAndExecute(
+        chain1.genesisBl,
+        [createMsg(ord2Chain.chain, 'confirm', [block.header])],
+        [wallets[0], wallets[1], wallets[2], wallets[3]],
+      );
+      await createBlockAndExecute(
+        chain2.genesisBl,
+        [createMsg(ord2Chain.chain, 'confirm', [block.header])],
+        [wallets[4], wallets[5], wallets[6], wallets[7]],
+      );
+
+      await expect(ord2Chain.chain.finalize(block.header)).to.not.be.reverted;
+
+      const altBlock = await createBlock(ord2Chain.genesisBl, [], [], [
+        createAddConfirmerOp(wallets[0].address, 1)
+      ]);
+      const chain3Bl = await createBlockAndFinalize(
+        chain3.genesisBl,
+        [createMsg(ord2Chain.chain, 'confirm', [altBlock.header])],
+        [wallets[8], wallets[10], wallets[11]],
+      );
+
+      await expect(chain3.chain.execute(chain3Bl)).to.emit(ord2Chain.chain, 'ByzantineFault');
+      
+      expect(await ord2Chain.chain.isConfirmedBy(getBlockId(altBlock.header), chain3.chain.address)).to.be.false;
+
+      const block2 = await createBlock(block, [], []);
+      await createBlockAndExecute(
+        chain1Bl,
+        [createMsg(ord2Chain.chain, 'confirm', [block2.header])],
+        [wallets[0], wallets[1], wallets[2], wallets[3]],
+      );
+      expect(await ord2Chain.chain.isConfirmedBy(getBlockId(block2.header), chain1.chain.address)).to.be.true;
+
+      await createBlockAndExecute(
+        chain3Bl,
+        [createMsg(ord2Chain.chain, 'confirm', [block2.header])],
+        [wallets[8], wallets[10], wallets[11]],
+      );
+      expect(await ord2Chain.chain.isConfirmedBy(getBlockId(block2.header), chain3.chain.address)).to.be.false;
+    });
 
   });
 
@@ -422,8 +522,74 @@ describe("FirmChain", function () {
         const blockId = getBlockId(header);
         expect(await chain.isFinalized(blockId)).to.be.true;
       });
-
     })
+
+    describe("2nd order firmchain", async function() {
+      it("Should fail in case of not enough confirmations", async function() {
+        const { chain1, ord2Chain, wallets } = await loadFixture(deploy2ndOrderChain);
+        
+        const block = await createBlock(ord2Chain.genesisBl, [], []);
+
+        const chain1Bl = await createBlockAndExecute(
+          chain1.genesisBl,
+          [createMsg(ord2Chain.chain, 'confirm', [block.header])],
+          [wallets[0], wallets[1], wallets[2], wallets[3]],
+        );
+        expect(await ord2Chain.chain.isConfirmedBy(getBlockId(block.header), chain1.chain.address)).to.be.true;
+
+        await expect(ord2Chain.chain.finalize(block.header)).to.be.revertedWith(
+          "Not enough confirmations"
+        );
+      });
+
+      it("Should succeed after enough confirmations", async function() {
+        const { chain1, chain2, ord2Chain, wallets } = await loadFixture(deploy2ndOrderChain);
+        
+        const block = await createBlock(ord2Chain.genesisBl, [], []);
+
+        const chain1Bl = await createBlockAndExecute(
+          chain1.genesisBl,
+          [createMsg(ord2Chain.chain, 'confirm', [block.header])],
+          [wallets[0], wallets[1], wallets[2], wallets[3]],
+        );
+        expect(await ord2Chain.chain.isConfirmedBy(getBlockId(block.header), chain1.chain.address)).to.be.true;
+
+        const chain2Bl = await createBlockAndExecute(
+          chain2.genesisBl,
+          [createMsg(ord2Chain.chain, 'confirm', [block.header])],
+          [wallets[4], wallets[5], wallets[6]],
+        );
+        expect(await ord2Chain.chain.isConfirmedBy(getBlockId(block.header), chain2.chain.address)).to.be.true;
+
+        await expect(ord2Chain.chain.finalize(block.header)).to.not.be.reverted;
+      });
+
+      it('Should record finalization', async () => {
+        const { chain1, chain2, ord2Chain, wallets } = await loadFixture(deploy2ndOrderChain);
+        
+        const block = await createBlock(ord2Chain.genesisBl, [], []);
+
+        expect(await ord2Chain.chain.isConfirmedBy(getBlockId(block.header), chain1.chain.address)).to.be.false;
+
+        const chain1Bl = await createBlockAndExecute(
+          chain1.genesisBl,
+          [createMsg(ord2Chain.chain, 'confirm', [block.header])],
+          [wallets[0], wallets[1], wallets[2], wallets[3]],
+        );
+        expect(await ord2Chain.chain.isConfirmedBy(getBlockId(block.header), chain1.chain.address)).to.be.true;
+
+        const chain2Bl = await createBlockAndExecute(
+          chain2.genesisBl,
+          [createMsg(ord2Chain.chain, 'confirm', [block.header])],
+          [wallets[4], wallets[5], wallets[6]],
+        );
+        expect(await ord2Chain.chain.isConfirmedBy(getBlockId(block.header), chain2.chain.address)).to.be.true;
+
+        await expect(ord2Chain.chain.finalize(block.header)).to.not.be.reverted;
+
+        expect(await ord2Chain.chain.isFinalized(getBlockId(block.header))).to.be.true;                        
+      });
+    });
   });
 
   describe("execute", async function() {
