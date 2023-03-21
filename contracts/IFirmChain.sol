@@ -29,4 +29,5 @@ interface IFirmChain {
         ConfirmerOp[] calldata ops,
         uint8 threshold
     ) external;
+
 }

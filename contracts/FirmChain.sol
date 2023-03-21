@@ -76,4 +76,9 @@ contract FirmChain is IFirmChain {
     function isFinalized(bytes32 blockId) public view returns (bool) {
         return _impl.isFinalized(blockId);
     }
+
+    modifier fromSelf() {
+        require(msg.sender == address(this), "This function can only be called by contract itself");
+        _;
+    }
 }

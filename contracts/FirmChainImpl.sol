@@ -447,13 +447,13 @@ library FirmChainImpl {
         return (size > 0);
     }
 
-    modifier fromSelf() {
-        require(msg.sender == address(this), "This function can only be called by contract itself");
+    modifier notFromSelf() {
+        require(msg.sender != address(this), "This function cannot be called by contract itself");
         _;
     }
 
-    modifier notFromSelf() {
-        require(msg.sender != address(this), "This function cannot be called by contract itself");
+    modifier fromSelf() {
+        require(msg.sender == address(this), "This function can only be called by contract itself");
         _;
     }
 
