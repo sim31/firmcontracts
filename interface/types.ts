@@ -70,8 +70,16 @@ export function isBlock(bl: BlockHeader | Block): bl is Block {
   return 'header' in bl;
 }
 
-export function isConfirmer(conf: Confirmer | Wallet | AddressStr): conf is Confirmer {
+export function isConfirmer(conf: Confirmer | any): conf is Confirmer {
   return typeof conf === 'object' && 'addr' in conf && 'weight' in conf;
+}
+
+export function isWallet(w: Wallet | any): w is Wallet {
+  return typeof w === 'object' && 'address' in w && 'provider' in w;
+}
+
+export function isWallets(w: Wallet[] | any): w is Wallet[] {
+  return isWallet(w[0]);
 }
 
 export interface ConfirmerSet {

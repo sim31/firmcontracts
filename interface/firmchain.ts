@@ -1,7 +1,7 @@
 import {
   Confirmer, ConfirmerOp, ConfirmerOpId, ExtendedBlock, isConfirmer, Message,
   UnsignedBlock, BlockHeader, ConfirmerSet, InitConfirmerSet, ZeroId,
-  GenesisBlock, NoContractBlock, ConfirmerValue, GenesisBlockValue, toValue, ConfirmerOpValue, ExtendedBlockValue, OptExtendedBlockValue, AddressStr,
+  GenesisBlock, NoContractBlock, ConfirmerValue, GenesisBlockValue, toValue, ConfirmerOpValue, ExtendedBlockValue, OptExtendedBlockValue, AddressStr, isWallet,
 } from './types'
 import { Wallet, BaseContract } from 'ethers';
 import { normalizeHexStr, getBlockBodyId, getBlockId, sign, getConfirmerSetId, decodeConfirmer, getCurrentTimestamp, } from './abi';
@@ -19,11 +19,19 @@ export function createConfirmer(confWallet: Wallet, weight: number): ConfirmerVa
 }
 
 export function createAddConfirmerOp(confirmer: Wallet | AddressStr, weight: number): ConfirmerOpValue;
+export function createAddConfirmerOp(
+  confirmer: Wallet | { chain: { address: AddressStr }},
+  weight: number
+): ConfirmerOpValue;
 export function createAddConfirmerOp(confirmer: ConfirmerValue): ConfirmerOpValue;
-export function createAddConfirmerOp(confirmer: ConfirmerValue | Wallet | AddressStr, weight?: number): ConfirmerOpValue {
+export function createAddConfirmerOp(
+  confirmer: ConfirmerValue | Wallet | AddressStr | { chain: { address: AddressStr }},
+  weight?: number
+): ConfirmerOpValue {
   const conf = isConfirmer(confirmer) ? confirmer : 
-    (typeof confirmer === 'object' ? createConfirmer(confirmer, weight ?? 0) :
-      { addr: confirmer, weight: weight ?? 0 });
+    (isWallet(confirmer) ? createConfirmer(confirmer, weight ?? 0) :
+      (typeof confirmer === 'string' ? { addr: confirmer, weight: weight ?? 0 } :
+        { addr: confirmer.chain.address, weight: weight ?? 0 }));
   const op: ConfirmerOpValue = {
     opId: ConfirmerOpId.Add,
     conf,
