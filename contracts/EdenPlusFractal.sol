@@ -2,9 +2,9 @@
 pragma solidity ^0.8.8;
 
 import "./FirmChain.sol";
-import "./IssuedToken.sol";
+import "./IssuedNTT.sol";
 
-contract EdenPlusFractal is FirmChain {
+contract EdenPlusFractal is FirmChain, IssuedNTT {
     struct BreakoutResults {
         address delegate;
         // From lowest (least contributed) to highest
@@ -12,7 +12,6 @@ contract EdenPlusFractal is FirmChain {
     }
 
     bytes constant _rewards = hex"020305080D15";
-    IssuedToken immutable _token;
 
     // Results of the last 4 weeks
     BreakoutResults[][4] public results;
@@ -21,10 +20,9 @@ contract EdenPlusFractal is FirmChain {
         Block memory genesisBl,
         ConfirmerOp[] memory confirmerOps,
         uint8 threshold,
-        IssuedToken tokenAddr
-    ) FirmChain(genesisBl, confirmerOps, threshold)  {
-        _token = tokenAddr;
-    }
+        string memory name,
+        string memory symbol
+    ) FirmChain(genesisBl, confirmerOps, threshold) IssuedNTT(name, symbol, address(this)) {}
 
     function submitResults(BreakoutResults[] calldata newResults) public fromSelf {
         results[3] = results[2];
@@ -39,9 +37,9 @@ contract EdenPlusFractal is FirmChain {
             for (uint r = 0; i < 6; i++) {
                 if (newResults[i].ranks[r] != address(0)) {
                     uint8 reward = uint8(_rewards[r]);
-                    _token.mint(newResults[i].ranks[r], reward);
+                    this.mint(newResults[i].ranks[r], reward);
                 }
-            }            
+            }
         }
     }
 }

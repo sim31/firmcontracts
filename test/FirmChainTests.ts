@@ -13,7 +13,7 @@ import {
 import { FirmChain, FirmChainImpl, IFirmChain } from "../typechain-types";
 import { BlockHeaderStruct } from "../typechain-types/contracts/FirmChainAbi";
 
-interface ChainInfo {
+export interface ChainInfo {
   confirmers: Wallet[] | ChainInfo[],
   confirmerValues: ConfirmerValue[],
   chain: FirmChain,
@@ -24,7 +24,7 @@ interface ChainInfo {
   lastFinalized: ExtendedBlock,
 }
 
-async function deployChain(
+export async function deployChain(
   confirmers: Wallet[] | ChainInfo[],
   threshold: number,
   implLib: FirmChainImpl
@@ -61,6 +61,99 @@ async function deployChain(
   };
 }
 
+export async function deployImplLib() {
+  const { signers, abiLib } = await loadFixture(abi.deployAbi);
+
+  const factory = await ethers.getContractFactory(
+    "FirmChainImpl",
+    {
+      libraries: { FirmChainAbi: abiLib.address }
+    }
+  );
+  let implLib;
+  expect(implLib = await factory.deploy()).to.not.be.reverted;
+  
+  return { signers, implLib, abiLib };
+}
+
+
+export async function deploy2ndOrderChain() {
+  const { implLib, abiLib, signers } = await loadFixture(deployImplLib);
+  const wallets = await abi.createWallets(16);
+
+  const chain1 = await deployChain(wallets.slice(0, 4), 3, implLib);
+  const chain2 = await deployChain(wallets.slice(4, 8), 3, implLib);
+  const chain3 = await deployChain(wallets.slice(8, 12), 3, implLib);
+
+  const ord2Chain = await deployChain([
+    chain1,
+    chain2,
+    chain3,
+  ], 2, implLib);
+
+  return {
+    chain1, chain2, chain3,
+    ord2Chain,
+    abiLib, signers,
+    wallets,
+  };
+}
+
+async function deployChainFixt() {
+  const { implLib, abiLib, signers } = await loadFixture(deployImplLib);
+  const wallets = await abi.createWallets();
+
+  const r = await deployChain(wallets.slice(0, 4), 3, implLib);
+
+  return {
+    ...r, abiLib, signers, implLib, wallets,
+  };
+}
+
+async function deployToken(issuer: string) {
+  const factory = await ethers.getContractFactory("IssuedToken");
+  const deployCall = factory.deploy("Test", "TOK", issuer);
+  await expect(deployCall).to.not.be.reverted;
+  return await deployCall;
+}
+
+async function deployNTT(issuer: string) {
+  const factory = await ethers.getContractFactory("IssuedNTT");
+  const deployCall = factory.deploy("Test", "TOK", issuer);
+  await expect(deployCall).to.not.be.reverted;
+  return await deployCall;
+}
+
+async function deployFirmChainToken() {
+  const fixtureVars = await loadFixture(deployChainFixt);
+  const token = await deployToken(fixtureVars.chain.address);
+  return { ...fixtureVars, token };
+}
+
+async function deploy2ndOrderChainToken() {
+  const fixtureVars = await loadFixture(deploy2ndOrderChain);
+  const token = await deployToken(fixtureVars.ord2Chain.chain.address);
+  return { ...fixtureVars, token };
+}
+
+async function deployFirmChainNTT() {
+  const fixtureVars = await loadFixture(deployChainFixt);
+  const ntt = await deployNTT(fixtureVars.chain.address);
+  return { ...fixtureVars, ntt };
+}
+
+async function deployDirectory() {
+  const factory = await ethers.getContractFactory("Directory");
+  const deployCall = factory.deploy();
+  await expect(deployCall).to.not.be.reverted;
+  return await deployCall;
+}
+
+async function deployFirmChainWithDir() {
+  const fixtureVars = await loadFixture(deployChainFixt);
+  const directory = await deployDirectory();
+  return { ...fixtureVars, directory };
+}
 
 export async function extConfirmByAll(chain: IFirmChain, wallets: Wallet[], block: BlockHeader | Block) {
   const header = isBlock(block) ? block.header : block;
@@ -144,99 +237,6 @@ export async function checkConfirmations(chain: FirmChain, wallets: Wallet[], he
 }
 
 describe("FirmChain", function () {
-  async function deployImplLib() {
-    const { signers, abiLib } = await loadFixture(abi.deployAbi);
-
-    const factory = await ethers.getContractFactory(
-      "FirmChainImpl",
-      {
-        libraries: { FirmChainAbi: abiLib.address }
-      }
-    );
-    let implLib;
-    expect(implLib = await factory.deploy()).to.not.be.reverted;
-    
-    return { signers, implLib, abiLib };
-  }
-
-  async function deployChainFixt() {
-    const { implLib, abiLib, signers } = await loadFixture(deployImplLib);
-    const wallets = await abi.createWallets();
-
-    const r = await deployChain(wallets.slice(0, 4), 3, implLib);
-
-    return {
-      ...r, abiLib, signers, implLib, wallets,
-    };
-  }
-
-  async function deploy2ndOrderChain() {
-    const { implLib, abiLib, signers } = await loadFixture(deployImplLib);
-    const wallets = await abi.createWallets(16);
-
-    const chain1 = await deployChain(wallets.slice(0, 4), 3, implLib);
-    const chain2 = await deployChain(wallets.slice(4, 8), 3, implLib);
-    const chain3 = await deployChain(wallets.slice(8, 12), 3, implLib);
-
-    const ord2Chain = await deployChain([
-      chain1,
-      chain2,
-      chain3,
-    ], 2, implLib);
-
-    return {
-      chain1, chain2, chain3,
-      ord2Chain,
-      abiLib, signers,
-      wallets,
-    };
-  }
-
-  async function deployToken(issuer: string) {
-    const factory = await ethers.getContractFactory("IssuedToken");
-    const deployCall = factory.deploy("Test", "TOK", issuer);
-    await expect(deployCall).to.not.be.reverted;
-    return await deployCall;
-  }
-
-  async function deployNTT(issuer: string) {
-    const factory = await ethers.getContractFactory("IssuedNTT");
-    const deployCall = factory.deploy("Test", "TOK", issuer);
-    await expect(deployCall).to.not.be.reverted;
-    return await deployCall;
-  }
-
-  async function deployFirmChainToken() {
-    const fixtureVars = await loadFixture(deployChainFixt);
-    const token = await deployToken(fixtureVars.chain.address);
-    return { ...fixtureVars, token };
-  }
-
-  async function deploy2ndOrderChainToken() {
-    const fixtureVars = await loadFixture(deploy2ndOrderChain);
-    const token = await deployToken(fixtureVars.ord2Chain.chain.address);
-    return { ...fixtureVars, token };
-  }
-
-  async function deployFirmChainNTT() {
-    const fixtureVars = await loadFixture(deployChainFixt);
-    const ntt = await deployNTT(fixtureVars.chain.address);
-    return { ...fixtureVars, ntt };
-  }
-
-  async function deployDirectory() {
-    const factory = await ethers.getContractFactory("Directory");
-    const deployCall = factory.deploy();
-    await expect(deployCall).to.not.be.reverted;
-    return await deployCall;
-  }
-
-  async function deployFirmChainWithDir() {
-    const fixtureVars = await loadFixture(deployChainFixt);
-    const directory = await deployDirectory();
-    return { ...fixtureVars, directory };
-  }
-
   describe("Deployment", async function() {
     it("Should deploy implementation library", async function() {
       await loadFixture(deployImplLib);
