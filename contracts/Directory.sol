@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.8;
 
-contract Directory {
-  mapping(address => bytes32) private _links;
+import "./SelfCalled.sol";
 
-  function setLink(bytes32 link) public {
-    _links[msg.sender] = link;
-  }
+contract Directory is SelfCalled {
+    bytes32 public directoryId;
 
-  function linkOf(address addr) public view returns (bytes32) {
-    return _links[addr];
-  }
+    function setDir(bytes32 dirId) public fromSelf {
+        directoryId = dirId;
+    }
 }

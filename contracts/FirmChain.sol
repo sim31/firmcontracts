@@ -78,7 +78,7 @@ contract FirmChain is IFirmChain {
     }
 
     modifier fromSelf() {
-        require(msg.sender == address(this), "This function can only be called by contract itself");
+        require(msg.sender == address(this), "Can only be called by self");
         _;
     }
 }

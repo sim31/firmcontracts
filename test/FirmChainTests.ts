@@ -142,19 +142,6 @@ async function deployFirmChainNTT() {
   return { ...fixtureVars, ntt };
 }
 
-async function deployDirectory() {
-  const factory = await ethers.getContractFactory("Directory");
-  const deployCall = factory.deploy();
-  await expect(deployCall).to.not.be.reverted;
-  return await deployCall;
-}
-
-async function deployFirmChainWithDir() {
-  const fixtureVars = await loadFixture(deployChainFixt);
-  const directory = await deployDirectory();
-  return { ...fixtureVars, directory };
-}
-
 export async function extConfirmByAll(chain: IFirmChain, wallets: Wallet[], block: BlockHeader | Block) {
   const header = isBlock(block) ? block.header : block;
   for (const [index, wallet] of wallets.entries()) {
@@ -1058,24 +1045,6 @@ describe("FirmChain", function () {
           );
           await extConfirmByAll(chain, newBlock21.signers, newBlock21.header);
           await expect(chain.finalizeAndExecute(newBlock21)).to.not.be.reverted;
-      });
-    });
-
-    describe("Directory", async function() {
-      it("Should allow setting link to firmchain directory", async function() {
-        const ch = await loadFixture(deployFirmChainWithDir);
-        const { directory, genesisBl, wallets, chain } = ch;
-
-        expect(await directory.linkOf(chain.address)).to.equal(ZeroId);
-
-        const newLink = randomBytes32Hex();
-        await createBlockAndExecute(
-          ch,
-          [createMsg(directory, 'setLink', [newLink])],
-          [wallets[0], wallets[1], wallets[2]],
-        );
-
-        expect(await directory.linkOf(chain.address)).to.equal(newLink);
       });
     });
 
