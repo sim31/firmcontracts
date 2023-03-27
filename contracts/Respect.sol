@@ -5,6 +5,8 @@ import "./SelfCalled.sol";
 import "./AccountSystem.sol";
 
 contract Respect is SelfCalled, AccountSystem {
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
     string public name;
     string public symbol;
     uint256 public totalSupply;
@@ -30,23 +32,24 @@ contract Respect is SelfCalled, AccountSystem {
 
     function _mint(AccountId accountId, uint256 amount) internal virtual {
         Account storage acc = accounts[AccountId.unwrap(accountId)];
-        require(acc.addr != address(0), "Account has to be created");
+        require(accountNotNull(acc), "Account has to be non-null");
 
         totalSupply += amount;
         unchecked {
             // Overflow not possible: balance + amount is at most totalSupply + amount, which is checked above.
-            acc.balance += amount;
+            _balances[accountId] += amount;
         }
         emit Transfer(address(0), acc.addr, amount);
     }
 
     function _burn(AccountId accountId, uint256 amount) internal virtual {
         Account storage acc = accounts[AccountId.unwrap(accountId)];
-        require(acc.addr != address(0), "Account has to be created");
+        require(accountNotNull(acc), "Account has to be non-null");
 
-        require(acc.balance >= amount, "Burn amount exceeds balance");
+        uint256 accountBalance = _balances[accountId];
+        require(accountBalance >= amount, "Burn amount exceeds balance");
         unchecked {
-            acc.balance = acc.balance - amount;
+            _balances[accountId] = accountBalance - amount;
             // Overflow not possible: amount <= accountBalance <= totalSupply.
             totalSupply -= amount;
         }
@@ -62,4 +65,10 @@ contract Respect is SelfCalled, AccountSystem {
         _burn(accountId, amount);
     }
 
+    function _beforeRemoval(AccountId id, Account storage account) internal virtual override {
+        uint256 balance = _balances[id];
+        if (balance > 0) {
+            _burn(id, balance);
+        }
+    }
 }

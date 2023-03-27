@@ -10,7 +10,9 @@ struct Account {
 
 type AccountId is uint64;
 uint constant MAX_ACCOUNT_ID = type(uint64).max;
-address constant RESERVED = address(1);
+address constant RESERVED_ACCOUNT = address(1);
+address constant NULL_ACCOUNT = address(0);
+AccountId constant NULL_ACCOUNT_ID = AccountId.wrap(0);
 
 contract AccountSystem is SelfCalled {
     // Can contain gaps 
@@ -19,24 +21,49 @@ contract AccountSystem is SelfCalled {
     mapping(address => AccountId) public byAddress;
 
     constructor() {
-        accounts.push(Account({ addr: address(0), metadataId: 0 }));
+        accounts.push(Account({ addr: NULL_ACCOUNT, metadataId: 0 }));
     }
 
-    function accountExists(AccountId id) public view {
+    function accountExists(AccountId id) public view returns (bool) {
+        return accountNotNull(accounts[AccountId.unwrap(id)]);
+    }
 
+    function accountNotNull(Account storage account) internal view returns (bool) {
+        return account.addr != NULL_ACCOUNT;
+    }
 
+    function accountNotNullMem(Account memory account) public pure returns (bool) {
+        return account.addr != NULL_ACCOUNT;
+    }
+
+    function accountNotNullCdata(Account calldata account) public pure returns (bool) {
+        return account.addr != NULL_ACCOUNT;
+    }
+    
+    function accountHasAddr(Account storage account) internal view returns (bool) {
+        return account.addr != RESERVED_ACCOUNT;
+    }
+
+    function accountHasAddrMem(Account memory account) public pure returns (bool) {
+        return account.addr != RESERVED_ACCOUNT;
+    }
+
+    function accountHasAddrCdata(Account memory account) public pure returns (bool) {
+        return account.addr != RESERVED_ACCOUNT;
     }
 
     function _createAccount(Account calldata account) internal virtual {
         require(accounts.length < MAX_ACCOUNT_ID, "Too many accounts");
-        require(account.metadataId != 0 || account.addr != address(0),
+        require(account.metadataId != 0 || account.addr != NULL_ACCOUNT,
             "Shouldn't set an empty account"
         );
         _beforeCreation(account);
-        if (account.addr != address(0)) {
+        if (accountNotNullCdata(account)) {
             byAddress[account.addr] = AccountId.wrap(uint64(accounts.length));
+            accounts.push(account);
+        } else {
+            accounts.push(Account(RESERVED_ACCOUNT, account.metadataId));
         }
-        accounts.push(account);
     }
 
     function createAccount(Account calldata account) external fromSelf {
@@ -50,10 +77,11 @@ contract AccountSystem is SelfCalled {
 
         _beforeRemoval(accountId, account);
 
-        if (account.addr != address(0)) {
-            byAddress[account.addr] = AccountId.wrap(0);
+        if (accountNotNull(account) && accountHasAddr(account)) {
+            byAddress[account.addr] = NULL_ACCOUNT_ID;
         }
 
+        // Sets addr of this entry to 0 (NULL_ACCOUNT)
         delete accounts[AccountId.unwrap(accountId)];
     }
 
@@ -72,14 +100,19 @@ contract AccountSystem is SelfCalled {
         _beforeUpdate(id, oldAccount, newAccount);
 
         if (oldAccount.addr != newAccount.addr) {
-            if (oldAccount.addr != address(0)) {
-                byAddress[oldAccount.addr] = AccountId.wrap(0);
+            if (oldAccount.addr != NULL_ACCOUNT) {
+                byAddress[oldAccount.addr] = NULL_ACCOUNT_ID;
             }
-            if (newAccount.addr != address(0)) {
+            if (newAccount.addr != NULL_ACCOUNT) {
                 byAddress[newAccount.addr] = id;
             }
         }
-        accounts[AccountId.unwrap(id)] = newAccount;
+        if (newAccount.addr == NULL_ACCOUNT) {
+            accounts[AccountId.unwrap(id)] = Account(RESERVED_ACCOUNT, newAccount.metadataId);
+
+        } else {
+            accounts[AccountId.unwrap(id)] = newAccount;
+        }
     }
 
     function updateAccount(AccountId id, Account calldata newAccount) external fromSelf {

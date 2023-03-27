@@ -4,9 +4,10 @@ pragma solidity ^0.8.8;
 import "./IFirmChain.sol";
 import "./FirmChainImpl.sol";
 import "./FirmChainAbi.sol";
+import "./SelfCalled.sol";
 import "hardhat/console.sol";
 
-contract FirmChain is IFirmChain {
+contract FirmChain is IFirmChain, SelfCalled {
     event ByzantineFault(address source, bytes32 forkPoint);
     event WrongConfirmerSetId(bytes32 blockId);
     event ExternalCall(bytes retValue);
@@ -75,10 +76,5 @@ contract FirmChain is IFirmChain {
 
     function isFinalized(bytes32 blockId) public view returns (bool) {
         return _impl.isFinalized(blockId);
-    }
-
-    modifier fromSelf() {
-        require(msg.sender == address(this), "Can only be called by self");
-        _;
     }
 }
