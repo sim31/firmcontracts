@@ -2,9 +2,9 @@
 pragma solidity ^0.8.8;
 
 import "./SelfCalled.sol";
-import "./AccountSystem.sol";
+import "./FirmAccountSystem.sol";
 
-contract Respect is SelfCalled, AccountSystem {
+contract Respect is FirmAccountSystem {
     event Transfer(address indexed from, address indexed to, uint256 value);
 
     string public name;
@@ -14,9 +14,12 @@ contract Respect is SelfCalled, AccountSystem {
     mapping(AccountId => uint256) private _balances;
 
     constructor(
+        Block memory genesisBl,
+        ConfirmerOp[] memory confirmerOps,
+        uint8 threshold,
         string memory name_,
         string memory symbol_
-    ) {
+    ) FirmAccountSystem(genesisBl, confirmerOps, threshold) {
         name = name_;
         symbol = symbol_;
     }

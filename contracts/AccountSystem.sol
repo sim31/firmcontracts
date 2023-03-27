@@ -14,7 +14,7 @@ address constant RESERVED_ACCOUNT = address(1);
 address constant NULL_ACCOUNT = address(0);
 AccountId constant NULL_ACCOUNT_ID = AccountId.wrap(0);
 
-contract AccountSystem is SelfCalled {
+abstract contract AccountSystem is SelfCalled {
     // Can contain gaps 
     // AccountId (index) => address
     Account[] public accounts;
