@@ -102,11 +102,18 @@ async function deployWithAccounts() {
     return createMsg(fixtVars.ord2Chain.chain, 'createAccount', [account])
   });
 
+  // console.log("ord2Chain 1: ", fixtVars.ord2Chain.headBlock.header);
+  // console.log("getHead 1: ", await fixtVars.ord2Chain.chain.getHead());
+
   const newOrd2Chain = await createBlockAndExecute(
     fixtVars.ord2Chain,
     msgs,
     fixtVars.ord2Chain.confirmers,
   );
+
+  // console.log("ord2Chain: ", fixtVars.ord2Chain.headBlock.header);
+  // console.log("newOrd2Chain: ", newOrd2Chain.headBlock.header);
+  // console.log("getHead2: ", await fixtVars.ord2Chain.chain.getHead());
 
   type AccountWithId = typeof accounts[0] & { id: number };
   const accountsWithIds: AccountWithId[] = [];
@@ -219,6 +226,86 @@ describe("FirmAccountSystem", function() {
         .to.be.revertedWith("Can only be called by self");
     });
 
-    // it("Should not allow ")
+    it("Should not allow removing reserved account", async function() {
+      const { ord2Chain, accounts, newOrd2Chain } = await loadFixture(deployWithAccounts);
+
+      // console.log("newOrd2Chain 2: ", newOrd2Chain.headBlock.header);
+      // console.log("getHead: ", await newOrd2Chain.chain.getHead());
+
+      const newOrd2Chain2 = await createBlockAndFinalize(
+        newOrd2Chain,
+        [createMsg(ord2Chain.chain, 'removeAccount', [0])],
+        newOrd2Chain.confirmers,
+      );
+      await expect(ord2Chain.chain.execute(newOrd2Chain2.lastFinalized))
+        .to.emit(ord2Chain.chain, "ExternalCallFail");
+    });
+
+    it("Should remove account without an address", async function() {
+      const { ord2Chain, accounts, newOrd2Chain } = await loadFixture(deployWithAccounts);
+
+      expect(await ord2Chain.chain.accountExists(accounts[0].id)).to.be.true;
+      let account = await ord2Chain.chain.accounts(accounts[0].id);
+      expect(await ord2Chain.chain.accountHasAddrCdata(account)).to.be.false;
+
+      const newOrd2Chain2 = await createBlockAndFinalize(
+        newOrd2Chain,
+        [createMsg(ord2Chain.chain, 'removeAccount', [accounts[0].id])],
+        newOrd2Chain.confirmers,
+      );
+      await expect(ord2Chain.chain.execute(newOrd2Chain2.lastFinalized))
+        .to.emit(ord2Chain.chain, "ExternalCall");
+
+      expect(await ord2Chain.chain.accountExists(accounts[0].id)).to.be.false;
+      account = await ord2Chain.chain.accounts(accounts[0].id);
+      expect(await ord2Chain.chain.accountNotNullCdata(account)).to.be.false;
+    });
+
+    it("Should remove an account with an address", async function() {
+      const { ord2Chain, accounts, newOrd2Chain } = await loadFixture(deployWithAccounts);
+
+      expect(await ord2Chain.chain.accountExists(accounts[1].id)).to.be.true;
+      let account = await ord2Chain.chain.accounts(accounts[1].id);
+      expect(await ord2Chain.chain.accountHasAddrCdata(account)).to.be.true;
+      const addr = account.addr;
+      expect(await ord2Chain.chain.byAddress(addr)).to.be.equal(accounts[1].id);
+
+      const newOrd2Chain2 = await createBlockAndExecute(
+        newOrd2Chain,
+        [createMsg(ord2Chain.chain, 'removeAccount', [accounts[1].id])],
+        newOrd2Chain.confirmers,
+      );
+
+      expect(await ord2Chain.chain.accountExists(accounts[1].id)).to.be.false;
+      account = await ord2Chain.chain.accounts(accounts[1].id);
+      expect(await ord2Chain.chain.accountNotNullCdata(account)).to.be.false;
+      expect(await ord2Chain.chain.byAddress(addr)).to.equal(0);
+    })
+  });
+
+  describe("Updating an account", async function() {
+    it("Should not allow updating account id 0", async function() {
+      const { ord2Chain, accounts, newOrd2Chain } = await loadFixture(deployWithAccounts);
+
+      const account = { addr: ZeroAddr, metadataId: randomBytes32Hex() };
+      const newOrd2Chain2 = await createBlockAndFinalize(
+        newOrd2Chain,
+        [createMsg(ord2Chain.chain, 'updateAccount', [0, account])],
+        newOrd2Chain.confirmers,
+      );
+
+      await expect(ord2Chain.chain.execute(newOrd2Chain2.lastFinalized))
+        .to.emit(ord2Chain.chain, "ExternalCallFail");
+    });
+
+    it("Should not allow external actors to update an account", async function() {
+      const { ord2Chain, accounts, newOrd2Chain } = await loadFixture(deployWithAccounts);
+
+      const account = { addr: ZeroAddr, metadataId: randomBytes32Hex() };
+
+      await expect(ord2Chain.chain.updateAccount(accounts[0].id, account))
+        .to.be.revertedWith("Can only be called by self");
+    });
+
   });
 });

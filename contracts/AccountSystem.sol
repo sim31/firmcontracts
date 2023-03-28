@@ -2,6 +2,7 @@
 pragma solidity ^0.8.8;
 
 import "./SelfCalled.sol";
+import "hardhat/console.sol";
 
 struct Account {
     address addr;
@@ -56,11 +57,9 @@ abstract contract AccountSystem is SelfCalled {
         return account.addr != RESERVED_ACCOUNT;
     }
 
-    function _createAccount(Account calldata account) internal virtual returns (AccountId) {
+    function _createAccount(Account calldata account) internal virtual validAccount(account) returns (AccountId) {
         require(accounts.length <= MAX_ACCOUNT_ID, "Too many accounts");
-        require(account.metadataId != 0 || account.addr != NULL_ACCOUNT,
-            "Shouldn't set an empty account"
-        );
+
         _beforeCreation(account);
         if (accountNotNullCdata(account)) {
             byAddress[account.addr] = AccountId.wrap(uint64(accounts.length));
@@ -78,9 +77,7 @@ abstract contract AccountSystem is SelfCalled {
         return _createAccount(account);
     }
 
-    function _removeAccount(AccountId accountId) internal virtual {
-        require(AccountId.unwrap(accountId) != 0,  "0 account id is reserved");
-
+    function _removeAccount(AccountId accountId) internal virtual nonNullId(accountId) {
         Account storage account = accounts[AccountId.unwrap(accountId)];
 
         _beforeRemoval(accountId, account);
@@ -99,12 +96,10 @@ abstract contract AccountSystem is SelfCalled {
         _removeAccount(accountId);
     }
 
-    function _updateAccount(AccountId id, Account calldata newAccount) internal virtual {
-        require(AccountId.unwrap(id) != 0, "0 account id is reserved");
-        require(newAccount.metadataId != 0 || newAccount.addr != address(0),
-            "Shouldn't set an empty account"
-        );
-
+    function _updateAccount(
+        AccountId id,
+        Account calldata newAccount
+    ) internal virtual validAccount(newAccount) nonNullId(id) {
         Account storage oldAccount = accounts[AccountId.unwrap(id)];
 
         _beforeUpdate(id, oldAccount, newAccount);
@@ -130,6 +125,23 @@ abstract contract AccountSystem is SelfCalled {
 
     function updateAccount(AccountId id, Account calldata newAccount) external fromSelf {
         _updateAccount(id, newAccount);
+    }
+
+    modifier validAccount(Account calldata account) {
+        require(account.metadataId != 0 || account.addr != NULL_ACCOUNT,
+            "Shouldn't set an empty account"
+        );
+        require(account.addr != RESERVED_ACCOUNT,
+            "Cannot set reserved address for an account"
+        );
+        _;
+    }
+
+    modifier nonNullId(AccountId id) {
+        require(AccountId.unwrap(id) != AccountId.unwrap(NULL_ACCOUNT_ID),
+            "0 account id is reserved"
+        );
+        _;
     }
 
     function _beforeRemoval(AccountId id, Account storage account) internal virtual {}

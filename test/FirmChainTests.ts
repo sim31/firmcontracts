@@ -156,6 +156,7 @@ export async function createBlockAndConfirm(
   confirmerOps?: ConfirmerOpValue[],
   newThreshold?: number,
   ignoreConfirmerSetFail?: boolean,
+  updatedSigners?: ChainInfo[], // Where updated versions of signers will be stored (in case they are ChainInfos). Should pass an empty array here.
 ): Promise<ExtendedBlock> {
   if (!signers.length) {
     throw new Error("Signers cannot be empty");
@@ -172,11 +173,14 @@ export async function createBlockAndConfirm(
       chain.headBlock, messages, [], confirmerOps, newThreshold, ignoreConfirmerSetFail,
     );
     for (const signer of signers) {
-      const bl = await createBlockAndExecute(
+      const newSigner = await createBlockAndExecute(
         signer,
         [createMsg(newBlock.contract, 'confirm', [newBlock.header])],
         signer.confirmers
       );
+      if (updatedSigners) {
+        updatedSigners.push(newSigner);
+      }
     }
 
     return newBlock;
@@ -191,13 +195,24 @@ export async function createBlockAndFinalize(
   newThreshold?: number,
   ignoreConfirmerSetFail?: boolean,
 ): Promise<ChainInfo> {
+  const updatedSigners: ChainInfo[] = [];
   const newBlock = await createBlockAndConfirm(
-    chain, messages, signers, confirmerOps, newThreshold, ignoreConfirmerSetFail,
+    chain, messages, signers, confirmerOps, newThreshold, ignoreConfirmerSetFail, updatedSigners,
   );
   await expect(newBlock.contract.finalize(newBlock.header)).to.not.be.reverted;
+
+  let confirmers = chain.confirmers;
+  if (!isWallets(confirmers) && updatedSigners.length) {
+    confirmers = confirmers.map((confirmer) => {
+      const newConf = updatedSigners.find((s) => s.chain.address === confirmer.chain.address);
+      return newConf ? newConf : confirmer;
+    });
+  }
+
   return {
     ...chain,
     lastFinalized: newBlock,
+    confirmers,
   };
 }
 
@@ -209,12 +224,12 @@ export async function createBlockAndExecute(
   newThreshold?: number,
   ignoreConfirmerSetFail?: boolean,
 ): Promise<ChainInfo> {
-  const newBlock = await createBlockAndConfirm(
+  const newChain = await createBlockAndFinalize(
     chain, messages, signers, confirmerOps, newThreshold, ignoreConfirmerSetFail,
   );
   let t;
-  await expect(t = newBlock.contract.finalizeAndExecute(newBlock)).to.not.be.reverted;
-  return { ...chain, headBlock: newBlock, lastExecTx: await t, };
+  await expect(t = newChain.chain.execute(newChain.lastFinalized)).to.not.be.reverted;
+  return { ...newChain, headBlock: newChain.lastFinalized, lastExecTx: await t, };
 }
 
 export async function checkConfirmations(chain: FirmChain, wallets: Wallet[], header: BlockHeader) {
