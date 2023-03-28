@@ -4,7 +4,7 @@ import { ethers } from "hardhat";
 import { utils, Wallet } from "ethers";
 
 import * as abi from "./FirmChainAbiTests";
-import { Block, BlockHeader, Message, ConfirmerOp, ExtendedBlock, isBlock, ZeroId, ConfirmerOpValue, ConfirmerValue, AddressStr, Unpromised, isWallet, isWallets, } from "../interface/types";
+import { Block, BlockHeader, Message, ConfirmerOp, ExtendedBlock, isBlock, ZeroId, ConfirmerOpValue, ConfirmerValue, AddressStr, Unpromised, isWallet, isWallets, ZeroAddr, } from "../interface/types";
 import { decodeConfirmer, getBlockBodyId, getBlockId, getConfirmerSetId, normalizeHexStr, randomBytes32, randomBytes32Hex, sign } from "../interface/abi";
 import {
   createAddConfirmerOp, createAddConfirmerOps, createRemoveConfirmerOp,
@@ -76,7 +76,6 @@ export async function deployImplLib() {
   return { signers, implLib, abiLib };
 }
 
-
 export async function deploy2ndOrderChain() {
   const { implLib, abiLib, signers } = await loadFixture(deployImplLib);
   const wallets = await abi.createWallets(16);
@@ -110,14 +109,14 @@ async function deployChainFixt() {
   };
 }
 
-async function deployToken(issuer: string) {
+export async function deployToken(issuer: string) {
   const factory = await ethers.getContractFactory("IssuedToken");
   const deployCall = factory.deploy("Test", "TOK", issuer);
   await expect(deployCall).to.not.be.reverted;
   return await deployCall;
 }
 
-async function deployNTT(issuer: string) {
+export async function deployNTT(issuer: string) {
   const factory = await ethers.getContractFactory("IssuedNTT");
   const deployCall = factory.deploy("Test", "TOK", issuer);
   await expect(deployCall).to.not.be.reverted;
@@ -668,6 +667,25 @@ describe("FirmChain", function () {
           await expect(chain.finalize(newBlock.header)).to.not.be.reverted;
           await expect(chain.execute(newBlock)).to.emit(chain, "ContractDoesNotExist");
       });
+
+      it(
+        "Should emit ExternalCallFail event if message fails",
+        async function() {
+          const chainInfo = await loadFixture(deployFirmChainToken);
+          const { token, chain, confirmers } = chainInfo;
+
+          // Try emitting to zero address
+          const newChain1 = await createBlockAndFinalize(
+            chainInfo,
+            [createMsg(token, 'mint', [ZeroAddr, 10])],
+            confirmers,
+          );
+
+          await expect(newChain1.chain.execute(newChain1.lastFinalized))
+            .to.emit(newChain1.chain, 'ExternalCallFail');
+          
+        }
+      )
 
       it(
         "Should mint token successfully",
