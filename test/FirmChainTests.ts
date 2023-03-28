@@ -1,7 +1,7 @@
 import { time, loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { utils, Wallet } from "ethers";
+import { utils, Wallet, ContractTransaction } from "ethers";
 
 import * as abi from "./FirmChainAbiTests";
 import { Block, BlockHeader, Message, ConfirmerOp, ExtendedBlock, isBlock, ZeroId, ConfirmerOpValue, ConfirmerValue, AddressStr, Unpromised, isWallet, isWallets, ZeroAddr, } from "../interface/types";
@@ -22,6 +22,7 @@ export interface ChainInfo {
   threshold: number,
   headBlock: ExtendedBlock,
   lastFinalized: ExtendedBlock,
+  lastExecTx?: ContractTransaction,
 }
 
 export async function deployChain(
@@ -211,8 +212,9 @@ export async function createBlockAndExecute(
   const newBlock = await createBlockAndConfirm(
     chain, messages, signers, confirmerOps, newThreshold, ignoreConfirmerSetFail,
   );
-  await expect(newBlock.contract.finalizeAndExecute(newBlock)).to.not.be.reverted;
-  return { ...chain, headBlock: newBlock };
+  let t;
+  await expect(t = newBlock.contract.finalizeAndExecute(newBlock)).to.not.be.reverted;
+  return { ...chain, headBlock: newBlock, lastExecTx: await t, };
 }
 
 export async function checkConfirmations(chain: FirmChain, wallets: Wallet[], header: BlockHeader) {

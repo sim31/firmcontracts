@@ -15,6 +15,10 @@ address constant NULL_ACCOUNT = address(0);
 AccountId constant NULL_ACCOUNT_ID = AccountId.wrap(0);
 
 abstract contract AccountSystem is SelfCalled {
+    event AccountCreated(AccountId id);
+    event AccountUpdated(AccountId id, Account updatedAcc);
+    event AccountRemoved(AccountId id);
+
     // Can contain gaps 
     // AccountId (index) => address
     Account[] public accounts;
@@ -52,8 +56,8 @@ abstract contract AccountSystem is SelfCalled {
         return account.addr != RESERVED_ACCOUNT;
     }
 
-    function _createAccount(Account calldata account) internal virtual {
-        require(accounts.length < MAX_ACCOUNT_ID, "Too many accounts");
+    function _createAccount(Account calldata account) internal virtual returns (AccountId) {
+        require(accounts.length <= MAX_ACCOUNT_ID, "Too many accounts");
         require(account.metadataId != 0 || account.addr != NULL_ACCOUNT,
             "Shouldn't set an empty account"
         );
@@ -64,10 +68,14 @@ abstract contract AccountSystem is SelfCalled {
         } else {
             accounts.push(Account(RESERVED_ACCOUNT, account.metadataId));
         }
+
+        AccountId id = AccountId.wrap(uint64(accounts.length - 1));
+        emit AccountCreated(id);
+        return id;
     }
 
-    function createAccount(Account calldata account) external fromSelf {
-        _createAccount(account);
+    function createAccount(Account calldata account) external fromSelf returns (AccountId) {
+        return _createAccount(account);
     }
 
     function _removeAccount(AccountId accountId) internal virtual {
@@ -83,6 +91,8 @@ abstract contract AccountSystem is SelfCalled {
 
         // Sets addr of this entry to 0 (NULL_ACCOUNT)
         delete accounts[AccountId.unwrap(accountId)];
+
+        emit AccountRemoved(accountId);
     }
 
     function removeAccount(AccountId accountId) external fromSelf {
@@ -108,10 +118,13 @@ abstract contract AccountSystem is SelfCalled {
             }
         }
         if (newAccount.addr == NULL_ACCOUNT) {
-            accounts[AccountId.unwrap(id)] = Account(RESERVED_ACCOUNT, newAccount.metadataId);
+            Account memory acc = Account(RESERVED_ACCOUNT, newAccount.metadataId);
+            accounts[AccountId.unwrap(id)] = acc;
+            emit AccountUpdated(id, acc);
 
         } else {
             accounts[AccountId.unwrap(id)] = newAccount;
+            emit AccountUpdated(id, newAccount);
         }
     }
 
