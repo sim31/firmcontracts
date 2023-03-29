@@ -307,5 +307,107 @@ describe("FirmAccountSystem", function() {
         .to.be.revertedWith("Can only be called by self");
     });
 
+    it("Should allow setting an address on a account without an address yet", async function() {
+      const { ord2Chain, accounts, newOrd2Chain, wallets } = await loadFixture(deployWithAccounts);
+
+      const oldAccount = await ord2Chain.chain.accounts(accounts[0].id);
+      expect(await ord2Chain.chain.accountNotNullCdata(oldAccount)).to.be.true;
+      expect(await ord2Chain.chain.accountHasAddrCdata(oldAccount)).to.be.false;
+      expect(await ord2Chain.chain.byAddress(accounts[0].addr)).to.be.equal(0);
+
+      const account = { ...oldAccount, addr: wallets[8].address, };
+      const newOrd2Chain2 = await createBlockAndFinalize(
+        newOrd2Chain,
+        [createMsg(ord2Chain.chain, 'updateAccount', [accounts[0].id, account])],
+        newOrd2Chain.confirmers,
+      );
+
+      await expect(ord2Chain.chain.execute(newOrd2Chain2.lastFinalized))
+        .to.emit(ord2Chain.chain, "ExternalCall");
+      
+      const newAccount = await ord2Chain.chain.accounts(accounts[0].id);
+      expect(newAccount.metadataId).to.be.equal(oldAccount.metadataId);
+      expect(newAccount.addr).to.be.equal(wallets[8].address);
+      expect(await ord2Chain.chain.accountNotNullCdata(newAccount)).to.be.true;
+      expect(await ord2Chain.chain.accountHasAddrCdata(newAccount)).to.be.true;
+      expect(await ord2Chain.chain.byAddress(wallets[8].address)).to.be.equal(accounts[0].id);
+    });
+
+    it("Should allow nulling an address for an account with an address", async function() {
+      const { ord2Chain, accounts, newOrd2Chain, wallets } = await loadFixture(deployWithAccounts);
+
+      const oldAccount = await ord2Chain.chain.accounts(accounts[1].id);
+      expect(await ord2Chain.chain.accountNotNullCdata(oldAccount)).to.be.true;
+      expect(await ord2Chain.chain.accountHasAddrCdata(oldAccount)).to.be.true;
+      expect(await ord2Chain.chain.byAddress(accounts[1].addr)).to.be.equal(accounts[1].id);
+
+      const account = { ...oldAccount, addr: ZeroAddr, };
+      const newOrd2Chain2 = await createBlockAndFinalize(
+        newOrd2Chain,
+        [createMsg(ord2Chain.chain, 'updateAccount', [accounts[1].id, account])],
+        newOrd2Chain.confirmers,
+      );
+
+      await expect(ord2Chain.chain.execute(newOrd2Chain2.lastFinalized))
+        .to.emit(ord2Chain.chain, "ExternalCall");
+      
+      const newAccount = await ord2Chain.chain.accounts(accounts[1].id);
+      expect(newAccount.metadataId).to.be.equal(oldAccount.metadataId);
+      expect(await ord2Chain.chain.accountNotNullCdata(newAccount)).to.be.true;
+      expect(await ord2Chain.chain.accountHasAddrCdata(newAccount)).to.be.false;
+      expect(await ord2Chain.chain.byAddress(oldAccount.addr)).to.be.equal(0);
+    });
+
+    it("Should allow switching an address for an account", async function() {
+      const { ord2Chain, accounts, newOrd2Chain, wallets } = await loadFixture(deployWithAccounts);
+
+      const oldAccount = await ord2Chain.chain.accounts(accounts[1].id);
+      expect(await ord2Chain.chain.accountNotNullCdata(oldAccount)).to.be.true;
+      expect(await ord2Chain.chain.accountHasAddrCdata(oldAccount)).to.be.true;
+      expect(await ord2Chain.chain.byAddress(accounts[1].addr)).to.be.equal(accounts[1].id);
+      expect(oldAccount.addr).to.not.equal(wallets[9].address);
+
+      const account = { ...oldAccount, addr: wallets[9].address, };
+      const newOrd2Chain2 = await createBlockAndFinalize(
+        newOrd2Chain,
+        [createMsg(ord2Chain.chain, 'updateAccount', [accounts[1].id, account])],
+        newOrd2Chain.confirmers,
+      );
+
+      await expect(ord2Chain.chain.execute(newOrd2Chain2.lastFinalized))
+        .to.emit(ord2Chain.chain, "ExternalCall");
+      
+      const newAccount = await ord2Chain.chain.accounts(accounts[1].id);
+      expect(newAccount.metadataId).to.be.equal(oldAccount.metadataId);
+      expect(newAccount.addr).to.be.equal(wallets[9].address);
+      expect(await ord2Chain.chain.accountNotNullCdata(newAccount)).to.be.true;
+      expect(await ord2Chain.chain.accountHasAddrCdata(newAccount)).to.be.true;
+      expect(await ord2Chain.chain.byAddress(wallets[9].address)).to.be.equal(accounts[1].id);
+    });
+
+    it("Should allow changing metadataId of an account", async function() {
+      const { ord2Chain, accounts, newOrd2Chain, wallets } = await loadFixture(deployWithAccounts);
+
+      const newMetadataId = randomBytes32Hex();
+
+      const oldAccount = await ord2Chain.chain.accounts(accounts[2].id);
+      expect(await ord2Chain.chain.accountNotNullCdata(oldAccount)).to.be.true;
+      expect(oldAccount.metadataId).to.not.equal(newMetadataId);
+
+      const account = { ...oldAccount, metadataId: newMetadataId };
+      const newOrd2Chain2 = await createBlockAndFinalize(
+        newOrd2Chain,
+        [createMsg(ord2Chain.chain, 'updateAccount', [accounts[2].id, account])],
+        newOrd2Chain.confirmers,
+      );
+
+      await expect(ord2Chain.chain.execute(newOrd2Chain2.lastFinalized))
+        .to.emit(ord2Chain.chain, "ExternalCall");
+      
+      const newAccount = await ord2Chain.chain.accounts(accounts[2].id);
+      expect(newAccount.metadataId).to.be.equal(newMetadataId);
+      expect(newAccount.addr).to.be.equal(oldAccount.addr);
+      expect(await ord2Chain.chain.accountNotNullCdata(newAccount)).to.be.true;
+    });
   });
 });
