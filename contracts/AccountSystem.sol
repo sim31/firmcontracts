@@ -57,11 +57,11 @@ abstract contract AccountSystem is SelfCalled {
         return account.addr != RESERVED_ACCOUNT;
     }
 
-    function _createAccount(Account calldata account) internal virtual validAccount(account) returns (AccountId) {
+    function _createAccount(Account memory account) internal virtual validAccount(account) returns (AccountId) {
         require(accounts.length <= MAX_ACCOUNT_ID, "Too many accounts");
 
         _beforeCreation(account);
-        if (accountNotNullCdata(account)) {
+        if (accountNotNullMem(account)) {
             byAddress[account.addr] = AccountId.wrap(uint64(accounts.length));
             accounts.push(account);
         } else {
@@ -127,7 +127,7 @@ abstract contract AccountSystem is SelfCalled {
         _updateAccount(id, newAccount);
     }
 
-    modifier validAccount(Account calldata account) {
+    modifier validAccount(Account memory account) {
         require(account.metadataId != 0 || account.addr != NULL_ACCOUNT,
             "Shouldn't set an empty account"
         );
@@ -150,5 +150,5 @@ abstract contract AccountSystem is SelfCalled {
         Account storage oldAccount,
         Account calldata newAccount
     ) internal virtual {}
-    function _beforeCreation(Account calldata account) internal virtual {}
+    function _beforeCreation(Account memory account) internal virtual {}
 }

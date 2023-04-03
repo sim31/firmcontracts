@@ -14,6 +14,7 @@ import { ConfirmerOpStruct, } from "../typechain-types/contracts/FirmChain";
 import { Optional, Overwrite, ValuesType } from "utility-types";
 import { string } from "hardhat/internal/core/params/argumentTypes";
 import { PromiseOrValue } from "../typechain-types/common";
+import { AccountStruct } from "../typechain-types/contracts/AccountSystem";
 
 export * from "../typechain-types";
 
@@ -50,6 +51,8 @@ export type ConfirmerOutput = ConfirmerStructOutput;
 
 export type ConfirmerValue = 
   Overwrite<Unpromised<ConfirmerStruct>, { weight: number }>;
+
+export type AccountValue = Unpromised<AccountStruct>;
 
 export type BlockValue = Unpromised<Block>;
 export type BlockHeaderValue = Unpromised<BlockHeader>;

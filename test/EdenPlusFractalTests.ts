@@ -7,7 +7,7 @@ import type { ChainInfo } from "./FirmChainTests";
 import * as abi from "./FirmChainAbiTests";
 import { Wallet, ContractTransaction } from "ethers";
 import { Respect, EdenPlusFractal, FirmChainImpl } from "../typechain-types";
-import { ConfirmerOpValue, ExtendedBlock, ZeroAddr, ZeroId } from "../interface/types";
+import { Account, ConfirmerOpValue, ExtendedBlock, ZeroAddr, ZeroId } from "../interface/types";
 import { createAddConfirmerOp, createBlock, createBlockTemplate, createGenesisBlock, createMsg } from "../interface/firmchain";
 import { Overwrite } from "utility-types";
 import { randomBytes32Hex } from "../interface/abi";
@@ -31,12 +31,19 @@ export async function deployEF(
     }
   );
 
-  const confOps: ConfirmerOpValue[] = confirmers.map((conf) => {
-    return createAddConfirmerOp(conf, 1);
+  const confAccounts = confirmers.map((conf) => {
+    if ('address' in conf) {
+      return { addr: conf.address, metadataId: ZeroId };
+    } else {
+      return { addr: conf.chain.address, metadataId: ZeroId };
+    }
   });
+  const confOps = confAccounts.map((account) => {
+    return createAddConfirmerOp(account.addr, 1);
+  })
   const genesisBlock = await createGenesisBlock([], confOps, threshold);
 
-  const deployCall = factory.deploy(genesisBlock, confOps, threshold, name, symbol);
+  const deployCall = factory.deploy(genesisBlock, confAccounts, threshold, name, symbol);
   await expect(deployCall).to.not.be.reverted;
   const chain = await deployCall;
   const genesisBl: ExtendedBlock = {

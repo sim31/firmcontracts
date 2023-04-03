@@ -19,11 +19,31 @@ contract EdenPlusFractal is Respect, Directory {
 
     constructor(
         Block memory genesisBl,
-        ConfirmerOp[] memory confirmerOps,
+        Account[] memory confirmers,
         uint8 threshold,
         string memory name_,
         string memory symbol_
-    ) Respect(genesisBl, confirmerOps, threshold, name_, symbol_) {}
+    ) Respect(genesisBl, accountsToConfirmerOps(confirmers), threshold, name_, symbol_) {
+        for (uint i = 0; i < confirmers.length; i++) {
+            _createAccount(confirmers[i]);
+        }
+    }
+
+    function accountsToConfirmerOps(Account[] memory accounts)
+        public pure returns(ConfirmerOp[] memory) {
+        ConfirmerOp[] memory ops = new ConfirmerOp[](accounts.length);
+        for (uint i = 0; i < accounts.length; i++) {
+            Account memory acc = accounts[i];
+            require(accountNotNullMem(acc), "Account has to have an address");
+            ops[i] = ConfirmerOp({ 
+                opId: ConfirmerOpId.ADD, 
+                conf: Confirmer({ 
+                    addr: acc.addr, weight: 1 
+                })
+            });
+        }
+        return ops;
+    }
 
     // Will fail if a delegate is not set
     function getDelegate(uint8 weekIndex, uint8 roomIndex) public view returns (AccountId) {
