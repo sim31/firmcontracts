@@ -133,5 +133,5 @@ export function getBlockId(header: BlockHeader) {
 }
 
 export function getCurrentTimestamp() {
-  return Math.trunc(Date.now() / 1000) - 20;
+  return Math.trunc(Date.now() / 1000);
 }

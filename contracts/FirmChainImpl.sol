@@ -97,7 +97,14 @@ library FirmChainImpl {
         chain._head = bId;
     }
 
-    function confirm(FirmChain storage chain, BlockHeader calldata header) external notFromSelf returns (bool) {
+    // This must be called from contract (account with code set).
+    // If confirmations from externally-owned accounts would be allowed here,
+    // then people could use this function to confirm on ethereum, but that
+    // confirmation would not be exportable (because it is an ethereum tx).
+    // This could result in a fork.
+    // The fact that it is a contract does not protect from the same situation,
+    // but a DAO can make sure that confirmer contracts are not dependent on any state that could cause trouble like this.
+    function confirm(FirmChain storage chain, BlockHeader calldata header) external notFromSelf fromContract returns (bool) {
         return _confirm(chain, header, msg.sender);
     }
 
@@ -452,6 +459,11 @@ library FirmChainImpl {
         _;
     }
 
+    modifier fromContract() {
+        require(isContract(msg.sender), "Must be called from contract");
+        _;
+    }
+
     modifier fromSelf() {
         require(msg.sender == address(this), "This function can only be called by contract itself");
         _;
@@ -459,8 +471,8 @@ library FirmChainImpl {
 
     modifier goodTs(uint ts) {
         require(
-            ts <= block.timestamp,
-            "Block timestamp is later than current time"
+            ts <= block.timestamp + 60, // +/- 1 minute
+            "Timestamp is later than current time"
         );
         _;
     }
