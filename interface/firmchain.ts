@@ -7,7 +7,6 @@ import { Wallet, BaseContract } from 'ethers';
 import { normalizeHexStr, getBlockBodyId, getBlockId, sign, getConfirmerSetId, decodeConfirmer, getCurrentTimestamp, } from './abi';
 import { FirmChain, IFirmChain } from '../typechain-types';
 import { boolean } from 'hardhat/internal/core/params/argumentTypes';
-import { AccountCreatedEvent } from '../typechain-types/contracts/AccountSystem';
 import { AccountStruct } from '../typechain-types/contracts/AccountSystem';
 
 export function createAddConfirmerOps(confs: Confirmer[]): ConfirmerOp[] {

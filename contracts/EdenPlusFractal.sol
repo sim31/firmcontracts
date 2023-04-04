@@ -6,6 +6,8 @@ import "./Directory.sol";
 import "hardhat/console.sol";
 
 contract EdenPlusFractal is Respect, Directory {
+    using AccountSystemImpl for AccountSystemState;
+
     struct BreakoutResults {
         AccountId delegate;
         // From lowest (least contributed) to highest
@@ -25,7 +27,7 @@ contract EdenPlusFractal is Respect, Directory {
         string memory symbol_
     ) Respect(genesisBl, accountsToConfirmerOps(confirmers), threshold, name_, symbol_) {
         for (uint i = 0; i < confirmers.length; i++) {
-            _createAccount(confirmers[i]);
+            _accounts.createAccount(confirmers[i]);
         }
     }
 
@@ -61,16 +63,16 @@ contract EdenPlusFractal is Respect, Directory {
         delete _delegates[0];
 
         for (uint i = 0; i < newResults.length; i++) {
-            Account storage delegateAcc = accounts[AccountId.unwrap(newResults[i].delegate)];
+            Account storage delegateAcc = _getAccount(newResults[i].delegate);
             require(accountNotNull(delegateAcc), "Delegate has to be set");
             _delegates[0].push(newResults[i].delegate);
 
             for (uint r = 0; r < 6; r++) {
-                uint64 rankedId = AccountId.unwrap(newResults[i].ranks[r]);
-                Account storage rankedAcc = accounts[rankedId];
+                AccountId rankedId = newResults[i].ranks[r];
+                Account storage rankedAcc = _getAccount(rankedId);
                 if (accountNotNull(rankedAcc)) {
                     uint8 reward = uint8(_rewards[r]);
-                    _mint(AccountId.wrap(rankedId), reward);
+                    _mint(rankedId, reward);
                 }
             }
         }

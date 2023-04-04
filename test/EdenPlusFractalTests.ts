@@ -6,12 +6,12 @@ import { deployImplLib, deployChain, createBlockAndExecute, createBlockAndFinali
 import type { ChainInfo } from "./FirmChainTests";
 import * as abi from "./FirmChainAbiTests";
 import { Wallet, ContractTransaction } from "ethers";
-import { Respect, EdenPlusFractal, FirmChainImpl } from "../typechain-types";
+import { Respect, EdenPlusFractal, FirmChainImpl, AccountSystemImpl } from "../typechain-types";
 import { Account, ConfirmerOpValue, ExtendedBlock, ZeroAddr, ZeroId } from "../interface/types";
 import { createAddConfirmerOp, createBlock, createBlockTemplate, createGenesisBlock, createMsg } from "../interface/firmchain";
 import { Overwrite } from "utility-types";
 import { randomBytes32Hex } from "../interface/abi";
-import { getCreatedAccId } from "./FirmAccountSystemTests";
+import { deployAccountSysImpl, getCreatedAccId } from "./FirmAccountSystemTests";
 
 chai.use(chaiSubset);
 
@@ -21,13 +21,17 @@ export async function deployEF(
   confirmers: Wallet[] | ChainInfo[],
   threshold: number,
   implLib: FirmChainImpl,
+  accSysImpl: AccountSystemImpl,
   name: string,
   symbol: string,
 ): Promise<EFInfo> {
   const factory = await ethers.getContractFactory(
     "EdenPlusFractal",
     {
-      libraries: { FirmChainImpl: implLib.address }
+      libraries: {
+        FirmChainImpl: implLib.address,
+        AccountSystemImpl: accSysImpl.address,
+      }
     }
   );
 
@@ -66,6 +70,7 @@ export async function deployEF(
 
 export async function deployEFFixt() {
   const { implLib, abiLib, signers } = await loadFixture(deployImplLib);
+  const accSys = await deployAccountSysImpl();
   const wallets = await abi.createWallets(12);
 
   const efChain = await deployEF([
@@ -73,7 +78,7 @@ export async function deployEFFixt() {
     wallets[1],
     wallets[2],
     wallets[3],
-  ], 3, implLib, "SomeFractal", "SF");
+  ], 3, implLib, accSys, "SomeFractal", "SF");
 
   // Create some accounts
   const accounts = [

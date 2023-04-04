@@ -1,154 +1,74 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.8;
 
-import "./SelfCalled.sol";
-import "hardhat/console.sol";
+import "./AccountSystemImpl.sol";
 
-struct Account {
-    address addr;
-    bytes32 metadataId;
-}
-
-type AccountId is uint64;
-uint constant MAX_ACCOUNT_ID = type(uint64).max;
-address constant RESERVED_ACCOUNT = address(1);
-address constant NULL_ACCOUNT = address(0);
-AccountId constant NULL_ACCOUNT_ID = AccountId.wrap(0);
-
-abstract contract AccountSystem is SelfCalled {
+abstract contract AccountSystem {
     event AccountCreated(AccountId id);
     event AccountUpdated(AccountId id, Account updatedAcc);
     event AccountRemoved(AccountId id);
 
-    // Can contain gaps 
-    // AccountId (index) => address
-    Account[] public accounts;
-    mapping(address => AccountId) public byAddress;
+    using AccountSystemImpl for AccountSystemState;
+
+    AccountSystemState internal _accounts;
 
     constructor() {
-        accounts.push(Account({ addr: NULL_ACCOUNT, metadataId: 0 }));
+        _accounts.construct();
+    }
+
+    function accounts() public view returns (Account[] memory) {
+        return _accounts.accounts;
+    }
+
+    function getAccount(AccountId id) public view returns (Account memory) {
+        return _accounts.accounts[AccountId.unwrap(id)];
+    }
+
+    function _getAccount(AccountId id) internal view returns (Account storage) {
+        return _accounts.accounts[AccountId.unwrap(id)];
+    }
+
+    function byAddress(address addr) public view returns (AccountId) {
+        return _accounts.byAddress[addr];
     }
 
     function accountExists(AccountId id) public view returns (bool) {
-        return accountNotNull(accounts[AccountId.unwrap(id)]);
+        return _accounts.accountExists(id);
     }
 
     function accountNotNull(Account storage account) internal view returns (bool) {
-        return account.addr != NULL_ACCOUNT;
+        return AccountSystemImpl.accountNotNull(account);
     }
 
     function accountNotNullMem(Account memory account) public pure returns (bool) {
-        return account.addr != NULL_ACCOUNT;
+        return AccountSystemImpl.accountNotNullMem(account);
     }
 
     function accountNotNullCdata(Account calldata account) public pure returns (bool) {
-        return account.addr != NULL_ACCOUNT;
+        return AccountSystemImpl.accountNotNullCdata(account);
     }
     
     function accountHasAddr(Account storage account) internal view returns (bool) {
-        return account.addr != RESERVED_ACCOUNT;
+        return AccountSystemImpl.accountHasAddr(account);
     }
 
     function accountHasAddrMem(Account memory account) public pure returns (bool) {
-        return account.addr != RESERVED_ACCOUNT;
+        return AccountSystemImpl.accountHasAddrMem(account);
     }
 
     function accountHasAddrCdata(Account memory account) public pure returns (bool) {
-        return account.addr != RESERVED_ACCOUNT;
+        return AccountSystemImpl.accountHasAddrCdata(account);
     }
 
-    function _createAccount(Account memory account) internal virtual validAccount(account) returns (AccountId) {
-        require(accounts.length <= MAX_ACCOUNT_ID, "Too many accounts");
-
-        _beforeCreation(account);
-        if (accountNotNullMem(account)) {
-            byAddress[account.addr] = AccountId.wrap(uint64(accounts.length));
-            accounts.push(account);
-        } else {
-            accounts.push(Account(RESERVED_ACCOUNT, account.metadataId));
-        }
-
-        AccountId id = AccountId.wrap(uint64(accounts.length - 1));
-        emit AccountCreated(id);
-        return id;
+    function createAccount(Account calldata account) external virtual returns (AccountId) {
+        return _accounts.createAccountFromSelf(account);
     }
 
-    function createAccount(Account calldata account) external fromSelf returns (AccountId) {
-        return _createAccount(account);
+    function removeAccount(AccountId accountId) external virtual returns (Account memory) {
+        return _accounts.removeAccountFromSelf(accountId);
     }
 
-    function _removeAccount(AccountId accountId) internal virtual nonNullId(accountId) {
-        Account storage account = accounts[AccountId.unwrap(accountId)];
-
-        _beforeRemoval(accountId, account);
-
-        if (accountNotNull(account) && accountHasAddr(account)) {
-            byAddress[account.addr] = NULL_ACCOUNT_ID;
-        }
-
-        // Sets addr of this entry to 0 (NULL_ACCOUNT)
-        delete accounts[AccountId.unwrap(accountId)];
-
-        emit AccountRemoved(accountId);
+    function updateAccount(AccountId id, Account calldata newAccount) external virtual returns (Account memory) {
+        return _accounts.updateAccountFromSelf(id, newAccount);
     }
-
-    function removeAccount(AccountId accountId) external fromSelf {
-        _removeAccount(accountId);
-    }
-
-    function _updateAccount(
-        AccountId id,
-        Account calldata newAccount
-    ) internal virtual validAccount(newAccount) nonNullId(id) {
-        Account storage oldAccount = accounts[AccountId.unwrap(id)];
-
-        _beforeUpdate(id, oldAccount, newAccount);
-
-        if (oldAccount.addr != newAccount.addr) {
-            if (oldAccount.addr != NULL_ACCOUNT) {
-                byAddress[oldAccount.addr] = NULL_ACCOUNT_ID;
-            }
-            if (newAccount.addr != NULL_ACCOUNT) {
-                byAddress[newAccount.addr] = id;
-            }
-        }
-        if (newAccount.addr == NULL_ACCOUNT) {
-            Account memory acc = Account(RESERVED_ACCOUNT, newAccount.metadataId);
-            accounts[AccountId.unwrap(id)] = acc;
-            emit AccountUpdated(id, acc);
-
-        } else {
-            accounts[AccountId.unwrap(id)] = newAccount;
-            emit AccountUpdated(id, newAccount);
-        }
-    }
-
-    function updateAccount(AccountId id, Account calldata newAccount) external fromSelf {
-        _updateAccount(id, newAccount);
-    }
-
-    modifier validAccount(Account memory account) {
-        require(account.metadataId != 0 || account.addr != NULL_ACCOUNT,
-            "Shouldn't set an empty account"
-        );
-        require(account.addr != RESERVED_ACCOUNT,
-            "Cannot set reserved address for an account"
-        );
-        _;
-    }
-
-    modifier nonNullId(AccountId id) {
-        require(AccountId.unwrap(id) != AccountId.unwrap(NULL_ACCOUNT_ID),
-            "0 account id is reserved"
-        );
-        _;
-    }
-
-    function _beforeRemoval(AccountId id, Account storage account) internal virtual {}
-    function _beforeUpdate(
-        AccountId id,
-        Account storage oldAccount,
-        Account calldata newAccount
-    ) internal virtual {}
-    function _beforeCreation(Account memory account) internal virtual {}
 }

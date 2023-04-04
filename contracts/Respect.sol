@@ -3,11 +3,14 @@ pragma solidity ^0.8.8;
 
 import "./SelfCalled.sol";
 import "./FirmAccountSystem.sol";
+import "./Named.sol";
+import "hardhat/console.sol";
 
 contract Respect is FirmAccountSystem {
     event Transfer(address indexed from, address indexed to, uint256 value);
 
-    string public name;
+    using AccountSystemImpl for AccountSystemState;
+
     string public symbol;
     uint256 public totalSupply;
 
@@ -19,13 +22,14 @@ contract Respect is FirmAccountSystem {
         uint8 threshold,
         string memory name_,
         string memory symbol_
-    ) FirmAccountSystem(genesisBl, confirmerOps, threshold) {
-        name = name_;
+    )
+        FirmAccountSystem(genesisBl, confirmerOps, threshold, name_) 
+    {
         symbol = symbol_;
     }
 
     function balanceOf(address account) public view virtual returns (uint256) {
-        AccountId accountId = byAddress[account];
+        AccountId accountId = byAddress(account);
         return balanceOfAccount(accountId);
     }
 
@@ -34,7 +38,7 @@ contract Respect is FirmAccountSystem {
     }
 
     function _mint(AccountId accountId, uint256 amount) internal virtual {
-        Account storage acc = accounts[AccountId.unwrap(accountId)];
+        Account storage acc = _getAccount(accountId);
         require(accountNotNull(acc), "Account has to be non-null");
 
         totalSupply += amount;
@@ -46,7 +50,7 @@ contract Respect is FirmAccountSystem {
     }
 
     function _burn(AccountId accountId, uint256 amount) internal virtual {
-        Account storage acc = accounts[AccountId.unwrap(accountId)];
+        Account storage acc = _getAccount(accountId);
         require(accountNotNull(acc), "Account has to be non-null");
 
         uint256 accountBalance = _balances[accountId];
@@ -68,10 +72,15 @@ contract Respect is FirmAccountSystem {
         _burn(accountId, amount);
     }
 
-    function _beforeRemoval(AccountId id, Account storage account) internal virtual override {
-        uint256 balance = _balances[id];
+    function removeAccount(AccountId accountId) external virtual override returns (Account memory) {
+        uint256 balance = _balances[accountId];
         if (balance > 0) {
-            _burn(id, balance);
+            _burn(accountId, balance);
         }
+
+        // Fails if nothing is removed
+        Account storage acc = _accounts.removeAccountFromSelf(accountId);
+
+        return acc;
     }
 }

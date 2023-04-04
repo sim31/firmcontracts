@@ -6,12 +6,12 @@ import { deployImplLib, deployChain, createBlockAndExecute, createBlockAndFinali
 import type { ChainInfo } from "./FirmChainTests";
 import * as abi from "./FirmChainAbiTests";
 import { Wallet, ContractTransaction } from "ethers";
-import { Respect, FirmChainImpl, FirmAccountSystem } from "../typechain-types";
+import { Respect, FirmChainImpl, FirmAccountSystem, AccountSystemImpl } from "../typechain-types";
 import { ConfirmerOpValue, ExtendedBlock, ZeroAddr, ZeroId } from "../interface/types";
 import { createAddConfirmerOp, createBlockTemplate, createGenesisBlock, createMsg } from "../interface/firmchain";
 import { Overwrite } from "utility-types";
 import { randomBytes32Hex } from "../interface/abi";
-import { getCreatedAccId } from "./FirmAccountSystemTests";
+import { getCreatedAccId, deployAccountSysImpl } from "./FirmAccountSystemTests";
 
 chai.use(chaiSubset);
 
@@ -21,13 +21,17 @@ export async function deployRespect(
   confirmers: Wallet[] | ChainInfo[],
   threshold: number,
   implLib: FirmChainImpl,
+  accSysImpl: AccountSystemImpl,
   name: string,
   symbol: string,
 ): Promise<RespectInfo> {
   const factory = await ethers.getContractFactory(
     "Respect",
     {
-      libraries: { FirmChainImpl: implLib.address }
+      libraries: {
+        FirmChainImpl: implLib.address,
+        AccountSystemImpl: accSysImpl.address,
+      }
     }
   );
 
@@ -59,6 +63,7 @@ export async function deployRespect(
 
 export async function deployRespectFixt() {
   const { implLib, abiLib, signers } = await loadFixture(deployImplLib);
+  const accSys = await deployAccountSysImpl();
   const wallets = await abi.createWallets(8);
 
   const respectChain = await deployRespect([
@@ -66,7 +71,7 @@ export async function deployRespectFixt() {
     wallets[1],
     wallets[2],
     wallets[3],
-  ], 3, implLib, "SomeFractal", "SF");
+  ], 3, implLib, accSys, "SomeFractal", "SF");
 
   // Create some accounts
   const accounts = [
@@ -108,7 +113,7 @@ export async function deployRespectFixt() {
   return {
     ...respectChain,
     latestChain: newChain,
-    abiLib, signers,
+    abiLib, signers, implLib, accSys,
     wallets,
     accounts: accountsWithIds,
   };

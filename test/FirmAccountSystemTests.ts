@@ -6,11 +6,12 @@ import { deployImplLib, deployChain, createBlockAndExecute, createBlockAndFinali
 import type { ChainInfo } from "./FirmChainTests";
 import * as abi from "./FirmChainAbiTests";
 import { Wallet, ContractTransaction } from "ethers";
-import { FirmDirectory, FirmChainImpl, FirmAccountSystem } from "../typechain-types";
+import { AccountSystemImpl, FirmChainImpl, FirmAccountSystem } from "../typechain-types";
 import { ConfirmerOpValue, ExtendedBlock, ZeroAddr, ZeroId } from "../interface/types";
 import { createAddConfirmerOp, createBlockTemplate, createGenesisBlock, createMsg } from "../interface/firmchain";
 import { Overwrite } from "utility-types";
 import { randomBytes32Hex } from "../interface/abi";
+import { deployEFFixt } from "./EdenPlusFractalTests";
 
 chai.use(chaiSubset);
 
@@ -19,12 +20,17 @@ export type FirmAccountSystemInfo = Overwrite<ChainInfo, { chain: FirmAccountSys
 export async function deployFirmAccountSystem(
   confirmers: Wallet[] | ChainInfo[],
   threshold: number,
+  name: string,
   implLib: FirmChainImpl,
+  accountSystemImpl: AccountSystemImpl,
 ): Promise<FirmAccountSystemInfo> {
   const factory = await ethers.getContractFactory(
     "FirmAccountSystem",
     {
-      libraries: { FirmChainImpl: implLib.address }
+      libraries: {
+        FirmChainImpl: implLib.address,
+        AccountSystemImpl: accountSystemImpl.address,
+      }
     }
   );
 
@@ -33,7 +39,7 @@ export async function deployFirmAccountSystem(
   });
   const genesisBlock = await createGenesisBlock([], confOps, threshold);
 
-  const deployCall = factory.deploy(genesisBlock, confOps, threshold);
+  const deployCall = factory.deploy(genesisBlock, confOps, threshold, name);
   await expect(deployCall).to.not.be.reverted;
   const chain = await deployCall;
   const genesisBl: ExtendedBlock = {
@@ -54,8 +60,24 @@ export async function deployFirmAccountSystem(
   };
 }
 
+export async function deployAccountSysImpl(): Promise<AccountSystemImpl> {
+  const factory = await ethers.getContractFactory(
+    "AccountSystemImpl",
+  );
+  let lib;
+  expect(lib = await factory.deploy()).to.not.be.reverted;
+  
+  return lib;
+}
+
+export async function deployImplementations() {
+  const fixtVars = await loadFixture(deployImplLib);
+  const accSys = await deployAccountSysImpl();
+  return { ...fixtVars, accSys };
+}
+
 async function deploy2ndOrderFirmAccs() {
-  const { implLib, abiLib, signers } = await loadFixture(deployImplLib);
+  const { implLib, abiLib, signers, accSys } = await loadFixture(deployImplementations);
   const wallets = await abi.createWallets(16);
 
   const chain1 = await deployChain(wallets.slice(0, 4), 3, implLib);
@@ -66,7 +88,7 @@ async function deploy2ndOrderFirmAccs() {
     chain1,
     chain2,
     chain3,
-  ], 2, implLib);
+  ], 2, "Test", implLib, accSys);
 
   return {
     chain1, chain2, chain3,
@@ -172,13 +194,13 @@ describe("FirmAccountSystem", function() {
       const tx = await t;
       const id = await getCreatedAccId(tx);
 
-      expect(await ord2Chain.chain.accounts(id)).to.containSubset({
+      expect(await ord2Chain.chain.getAccount(id)).to.containSubset({
         metadataId
       });
 
       expect(await ord2Chain.chain.accountExists(id)).to.be.true;
 
-      const acc = await ord2Chain.chain.accounts(id);
+      const acc = await ord2Chain.chain.getAccount(id);
 
       expect(await ord2Chain.chain.accountNotNullCdata(acc)).to.be.true;
       expect(await ord2Chain.chain.accountHasAddrCdata(acc)).to.be.false;
@@ -205,11 +227,11 @@ describe("FirmAccountSystem", function() {
       const tx = await t;
       const id = await getCreatedAccId(tx);
 
-      expect(await ord2Chain.chain.accounts(id)).to.containSubset(account);
+      expect(await ord2Chain.chain.getAccount(id)).to.containSubset(account);
 
       expect(await ord2Chain.chain.accountExists(id)).to.be.true;
 
-      const acc = await ord2Chain.chain.accounts(id);
+      const acc = await ord2Chain.chain.getAccount(id);
 
       expect(await ord2Chain.chain.accountNotNullCdata(acc)).to.be.true;
       expect(await ord2Chain.chain.accountHasAddrCdata(acc)).to.be.true;
@@ -245,7 +267,7 @@ describe("FirmAccountSystem", function() {
       const { ord2Chain, accounts, newOrd2Chain } = await loadFixture(deployWithAccounts);
 
       expect(await ord2Chain.chain.accountExists(accounts[0].id)).to.be.true;
-      let account = await ord2Chain.chain.accounts(accounts[0].id);
+      let account = await ord2Chain.chain.getAccount(accounts[0].id);
       expect(await ord2Chain.chain.accountHasAddrCdata(account)).to.be.false;
 
       const newOrd2Chain2 = await createBlockAndFinalize(
@@ -257,7 +279,7 @@ describe("FirmAccountSystem", function() {
         .to.emit(ord2Chain.chain, "ExternalCall");
 
       expect(await ord2Chain.chain.accountExists(accounts[0].id)).to.be.false;
-      account = await ord2Chain.chain.accounts(accounts[0].id);
+      account = await ord2Chain.chain.getAccount(accounts[0].id);
       expect(await ord2Chain.chain.accountNotNullCdata(account)).to.be.false;
     });
 
@@ -265,7 +287,7 @@ describe("FirmAccountSystem", function() {
       const { ord2Chain, accounts, newOrd2Chain } = await loadFixture(deployWithAccounts);
 
       expect(await ord2Chain.chain.accountExists(accounts[1].id)).to.be.true;
-      let account = await ord2Chain.chain.accounts(accounts[1].id);
+      let account = await ord2Chain.chain.getAccount(accounts[1].id);
       expect(await ord2Chain.chain.accountHasAddrCdata(account)).to.be.true;
       const addr = account.addr;
       expect(await ord2Chain.chain.byAddress(addr)).to.be.equal(accounts[1].id);
@@ -277,7 +299,7 @@ describe("FirmAccountSystem", function() {
       );
 
       expect(await ord2Chain.chain.accountExists(accounts[1].id)).to.be.false;
-      account = await ord2Chain.chain.accounts(accounts[1].id);
+      account = await ord2Chain.chain.getAccount(accounts[1].id);
       expect(await ord2Chain.chain.accountNotNullCdata(account)).to.be.false;
       expect(await ord2Chain.chain.byAddress(addr)).to.equal(0);
     })
@@ -310,7 +332,7 @@ describe("FirmAccountSystem", function() {
     it("Should allow setting an address on a account without an address yet", async function() {
       const { ord2Chain, accounts, newOrd2Chain, wallets } = await loadFixture(deployWithAccounts);
 
-      const oldAccount = await ord2Chain.chain.accounts(accounts[0].id);
+      const oldAccount = await ord2Chain.chain.getAccount(accounts[0].id);
       expect(await ord2Chain.chain.accountNotNullCdata(oldAccount)).to.be.true;
       expect(await ord2Chain.chain.accountHasAddrCdata(oldAccount)).to.be.false;
       expect(await ord2Chain.chain.byAddress(accounts[0].addr)).to.be.equal(0);
@@ -325,7 +347,7 @@ describe("FirmAccountSystem", function() {
       await expect(ord2Chain.chain.execute(newOrd2Chain2.lastFinalized))
         .to.emit(ord2Chain.chain, "ExternalCall");
       
-      const newAccount = await ord2Chain.chain.accounts(accounts[0].id);
+      const newAccount = await ord2Chain.chain.getAccount(accounts[0].id);
       expect(newAccount.metadataId).to.be.equal(oldAccount.metadataId);
       expect(newAccount.addr).to.be.equal(wallets[8].address);
       expect(await ord2Chain.chain.accountNotNullCdata(newAccount)).to.be.true;
@@ -336,7 +358,7 @@ describe("FirmAccountSystem", function() {
     it("Should allow nulling an address for an account with an address", async function() {
       const { ord2Chain, accounts, newOrd2Chain, wallets } = await loadFixture(deployWithAccounts);
 
-      const oldAccount = await ord2Chain.chain.accounts(accounts[1].id);
+      const oldAccount = await ord2Chain.chain.getAccount(accounts[1].id);
       expect(await ord2Chain.chain.accountNotNullCdata(oldAccount)).to.be.true;
       expect(await ord2Chain.chain.accountHasAddrCdata(oldAccount)).to.be.true;
       expect(await ord2Chain.chain.byAddress(accounts[1].addr)).to.be.equal(accounts[1].id);
@@ -351,7 +373,7 @@ describe("FirmAccountSystem", function() {
       await expect(ord2Chain.chain.execute(newOrd2Chain2.lastFinalized))
         .to.emit(ord2Chain.chain, "ExternalCall");
       
-      const newAccount = await ord2Chain.chain.accounts(accounts[1].id);
+      const newAccount = await ord2Chain.chain.getAccount(accounts[1].id);
       expect(newAccount.metadataId).to.be.equal(oldAccount.metadataId);
       expect(await ord2Chain.chain.accountNotNullCdata(newAccount)).to.be.true;
       expect(await ord2Chain.chain.accountHasAddrCdata(newAccount)).to.be.false;
@@ -361,7 +383,7 @@ describe("FirmAccountSystem", function() {
     it("Should allow switching an address for an account", async function() {
       const { ord2Chain, accounts, newOrd2Chain, wallets } = await loadFixture(deployWithAccounts);
 
-      const oldAccount = await ord2Chain.chain.accounts(accounts[1].id);
+      const oldAccount = await ord2Chain.chain.getAccount(accounts[1].id);
       expect(await ord2Chain.chain.accountNotNullCdata(oldAccount)).to.be.true;
       expect(await ord2Chain.chain.accountHasAddrCdata(oldAccount)).to.be.true;
       expect(await ord2Chain.chain.byAddress(accounts[1].addr)).to.be.equal(accounts[1].id);
@@ -377,7 +399,7 @@ describe("FirmAccountSystem", function() {
       await expect(ord2Chain.chain.execute(newOrd2Chain2.lastFinalized))
         .to.emit(ord2Chain.chain, "ExternalCall");
       
-      const newAccount = await ord2Chain.chain.accounts(accounts[1].id);
+      const newAccount = await ord2Chain.chain.getAccount(accounts[1].id);
       expect(newAccount.metadataId).to.be.equal(oldAccount.metadataId);
       expect(newAccount.addr).to.be.equal(wallets[9].address);
       expect(await ord2Chain.chain.accountNotNullCdata(newAccount)).to.be.true;
@@ -390,7 +412,7 @@ describe("FirmAccountSystem", function() {
 
       const newMetadataId = randomBytes32Hex();
 
-      const oldAccount = await ord2Chain.chain.accounts(accounts[2].id);
+      const oldAccount = await ord2Chain.chain.getAccount(accounts[2].id);
       expect(await ord2Chain.chain.accountNotNullCdata(oldAccount)).to.be.true;
       expect(oldAccount.metadataId).to.not.equal(newMetadataId);
 
@@ -404,7 +426,7 @@ describe("FirmAccountSystem", function() {
       await expect(ord2Chain.chain.execute(newOrd2Chain2.lastFinalized))
         .to.emit(ord2Chain.chain, "ExternalCall");
       
-      const newAccount = await ord2Chain.chain.accounts(accounts[2].id);
+      const newAccount = await ord2Chain.chain.getAccount(accounts[2].id);
       expect(newAccount.metadataId).to.be.equal(newMetadataId);
       expect(newAccount.addr).to.be.equal(oldAccount.addr);
       expect(await ord2Chain.chain.accountNotNullCdata(newAccount)).to.be.true;
