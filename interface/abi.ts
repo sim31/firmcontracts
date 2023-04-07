@@ -1,6 +1,6 @@
 import { BytesLike, utils, Wallet, } from 'ethers';
 import {
-  Confirmer, Block, BlockHeader, Message, Signature, ConfirmerValue,
+  Confirmer, Block, BlockHeader, Message, Signature, ConfirmerValue, BlockBody,
 
 } from './types';
 
@@ -8,20 +8,18 @@ export function normalizeHexStr(str: string) {
   return utils.hexlify(str);
 }
 
-export function encodeBlockBody(calls: readonly Message[]): BytesLike {
+export function encodeBlockBody(body: BlockBody): BytesLike {
   const coder = utils.defaultAbiCoder;
-  return coder.encode(["tuple(address addr, bytes cdata)[]"], [calls]);
+  return coder.encode([
+    "bytes32", "bytes32",
+    "tuple(address addr, bytes cdata)[]",
+  ], [body.confirmerSetId, body.mirror, body.msgs]);
 }
 
-export function getBlockBodyId(calls: Message[]): string;
+export function getBlockBodyId(body: BlockBody): string;
 export function getBlockBodyId(block: Block): string;
-export function getBlockBodyId(callsOrBlock: Block | Message[]): string {
-  let encBody: BytesLike =  ""; 
-  if (Array.isArray(callsOrBlock)) {
-    encBody = encodeBlockBody(callsOrBlock);
-  } else {
-    encBody = encodeBlockBody(callsOrBlock.msgs);
-  }
+export function getBlockBodyId(block: BlockBody | Block): string {
+  let encBody: BytesLike = encodeBlockBody(block);
   return utils.keccak256(encBody);
 }
 
@@ -55,6 +53,10 @@ export function randomBytes32() {
   return utils.randomBytes(32);
 }
 
+export function randomByte() {
+  return utils.randomBytes(1);
+}
+
 export function randomBytes32Hex(): string {
   return utils.hexlify(randomBytes32());
 }
@@ -63,68 +65,59 @@ export function randomBytesHex(n: number): string {
   return utils.hexlify(utils.randomBytes(n));
 }
 
-export function randomSig() {
+export function randomSigBytes() {
   return utils.randomBytes(72);
 }
 
-export async function packSig(sig: Signature): Promise<BytesLike> {
-  const v = await Promise.resolve(sig.v);
-  return utils.concat([await Promise.resolve(sig.r), await Promise.resolve(sig.s), utils.hexlify(v)]);
-}
-
-export async function setBlockSignatures(header: BlockHeader, sigs: Signature[]): Promise<void> {
-  let packedSigs: BytesLike[] = [];
-  for (const sig of sigs) {
-    packedSigs.push(await packSig(sig));
-  }
-  header.sigs = utils.concat(packedSigs);
-}
-
-export async function sign(wallet: Wallet, header: BlockHeader): Promise<BlockHeader>;
-export async function sign(wallets: Wallet[], header: BlockHeader): Promise<BlockHeader>;
-export async function sign(w: Wallet[] | Wallet, header: BlockHeader): Promise<BlockHeader> {
-  const wallets = Array.isArray(w) ? w : [w];
-  const prevSigs = await Promise.resolve(header.sigs);
-  const digest = getBlockDigest(header);
-  const sigs: BytesLike[] = [];
-
-  for (const wallet of wallets) {
-    sigs.push(await packSig(wallet._signingKey().signDigest(digest)));
-  }
-
+export function randomSig(): Signature {
   return {
-    ...header,
-    sigs: utils.concat([prevSigs, ...sigs]),
+    r: randomBytes32(),
+    s: randomBytes32(),
+    v: randomByte(),
   };
 }
+
+export async function sign(wallet: Wallet, header: BlockHeader): Promise<Signature> {
+  const digest = getBlockDigest(header);
+  return await wallet._signingKey().signDigest(digest);
+}
+
+export async function batchSign(wallets: Wallet[], header: BlockHeader): Promise<Signature[]> {
+  const sigs: Signature[] = [];
+  for (const wallet of wallets) {
+    sigs.push(await sign(wallet, header));
+  }
+  return sigs;
+}
+// export async function sign(wallets: Wallet[], header: BlockHeader): Promise<Signature[]>;
+// export async function sign(w: Wallet[] | Wallet, header: BlockHeader): Promise<Signature[]> {
+//   const wallets = Array.isArray(w) ? w : [w];
+//   const digest = getBlockDigest(header);
+//   const sigs: Signature[] = [];
+
+//   for (const wallet of wallets) {
+//     sigs.push(await wallet._signingKey().signDigest(digest));
+//   }
+
+//   return sigs;
+// }
 
 
 // TODO: This might not work if you pass promises as values in header
 export function encodeHeader(header: BlockHeader) {
   return utils.solidityPack(
-    ["bytes32", "bytes32", "bytes32", "uint", "bytes"],
+    ["bytes32", "bytes32", "uint"],
     [
       header.prevBlockId,
       header.blockBodyId,
-      header.confirmerSetId,
       header.timestamp,
-      header.sigs
     ]
   );
 }
 
 // TODO: This might not work if you pass promises as values in header
 export function getBlockDigest(header: BlockHeader): string {
-  const encoded = utils.solidityPack(
-    ["bytes32", "bytes32", "bytes32", "uint"],
-    [
-      header.prevBlockId,
-      header.blockBodyId,
-      header.confirmerSetId,
-      header.timestamp
-    ]
-  );
-
+  const encoded = encodeHeader(header);
   return utils.keccak256(encoded);
 }
 

@@ -35,9 +35,9 @@ contract FirmChain is IFirmChain, SelfCalled {
     function extConfirm(
         BlockHeader calldata header,
         address signatory,
-        uint8 sigIndex
+        Signature calldata sig
     ) external returns (bool) {
-        return _impl.extConfirm(header, signatory, sigIndex);
+        return _impl.extConfirm(header, signatory, sig);
     }
 
     function finalize(BlockHeader calldata header) external {

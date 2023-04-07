@@ -27,9 +27,7 @@ struct ConfirmerSet {
 struct BlockHeader {
     bytes32 prevBlockId;
     bytes32 blockBodyId;
-    bytes32 confirmerSetId;
     uint timestamp;
-    bytes sigs;
 }
 
 struct Message {
@@ -39,7 +37,11 @@ struct Message {
 
 struct Block {
     BlockHeader header;
-    // Data identified by blockDataId
+    bytes32 confirmerSetId;
+    // IPFS version of a chain
+    bytes32 mirror;
+    // TODO: Function to set mirror contract
+    // address mirrorContract;
     Message[] msgs;
 }
 
@@ -48,9 +50,7 @@ library FirmChainAbi {
         return abi.encodePacked(
             header.prevBlockId,
             header.blockBodyId,
-            header.confirmerSetId,
-            header.timestamp,
-            header.sigs
+            header.timestamp
         );
     }
 
@@ -197,12 +197,12 @@ library FirmChainAbi {
         return getConfirmerSetId(confSet);
     }
 
-    function encodeBlockBody(Message[] calldata msgs) public pure returns(bytes memory) {
-        return abi.encode(msgs);
+    function encodeBlockBody(Block calldata bl) public pure returns(bytes memory) {
+        return abi.encode(bl.confirmerSetId, bl.mirror, bl.msgs);
     }
 
     function getBlockBodyId(Block calldata bl) public pure returns (bytes32) {
-        bytes memory b = encodeBlockBody(bl.msgs);
+        bytes memory b = encodeBlockBody(bl);
         // console.log("Encoded block body length: %i", b.length);
         // console.log("Block data length: %i", bl.blockData.length);
         return keccak256(b);
@@ -223,43 +223,18 @@ library FirmChainAbi {
         BlockHeader calldata header
     ) public pure returns (bytes32) {
         // Like block id but without signatures
-        bytes memory encoded = abi.encodePacked(
-            header.prevBlockId,
-            header.blockBodyId,
-            header.confirmerSetId,
-            header.timestamp
-        );
+        bytes memory encoded = encode(header);
         // TODO: Generate IPFS hash;
         return keccak256(encoded);
     }
 
-    function getSig(BlockHeader calldata header, uint8 sigIndex) public pure returns(Signature memory) {
-        // Signatures are packed one after another in the header
-        uint32 sigStart = sigIndex * (32 + 32 + 1);
-        require(sigStart + (32+32+1) <= header.sigs.length, "sigIndex too big");
-        return Signature(
-            bytes32(header.sigs[sigStart:sigStart+32]),
-            bytes32(header.sigs[sigStart+32:sigStart+64]),
-            uint8(bytes1(header.sigs[sigStart+64]))
-        );
-    }
-
     function verifyBlockSig(
         BlockHeader calldata header,
-        Signature memory sig,
+        Signature calldata sig,
         address signer
     ) public pure returns (bool) {
         bytes32 digest = getBlockDigest(header);
         address sg = ecrecover(digest, sig.v, sig.r, sig.s);
         return sg == signer;
-    }
-
-    function verifySigInBlock(
-        BlockHeader calldata header,
-        uint8 sigIndex,
-        address signer
-    ) public pure returns (bool) {
-        Signature memory sig = getSig(header, sigIndex);
-        return verifyBlockSig(header, sig, signer);
     }
 }

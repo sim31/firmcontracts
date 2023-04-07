@@ -82,7 +82,7 @@ library FirmChainImpl {
             "Passed block body does not match header.blockBodyId"
         );
         require(
-            genesisBl.header.confirmerSetId != 0,
+            genesisBl.confirmerSetId != 0,
             "Confirmer set has to be set"
         );
 
@@ -114,9 +114,9 @@ library FirmChainImpl {
         FirmChain storage chain,
         BlockHeader calldata header,
         address signatory,
-        uint8 sigIndex
+        Signature calldata sig
     ) external returns (bool) {
-        require(header.verifySigInBlock(sigIndex, signatory), "Invalid signature");
+        require(header.verifyBlockSig(sig, signatory), "Invalid signature");
         return _confirm(chain, header, signatory);
     }
 
@@ -285,12 +285,12 @@ library FirmChainImpl {
         // call to perform these operations failed above. Either way next block won't
         // be finalizible until this is resolved (because _finalize requires previous block to be _head, which is only set below this require).
         // Note that it is not resolvable in the first case (bad declared confirmerSetId).
-        if (chain._confirmerSetId != bl.header.confirmerSetId) {
+        if (chain._confirmerSetId != bl.confirmerSetId) {
             console.log("chain confId: ", uint256(chain._confirmerSetId));
-            console.log("header confId: ", uint256(bl.header.confirmerSetId));
+            console.log("header confId: ", uint256(bl.confirmerSetId));
         }
         require(
-            chain._confirmerSetId == bl.header.confirmerSetId,
+            chain._confirmerSetId == bl.confirmerSetId,
             "Confirmer set computed does not match declared"
         );
 
@@ -307,7 +307,7 @@ library FirmChainImpl {
         // * Calculate hash of passed confirmer set (id);
         bytes32 confId = FirmChainAbi.getConfirmerSetId(confirmers, threshold);
         // * Check id is as specified in b1;
-        require(confId == b1.header.confirmerSetId);
+        require(confId == b1.confirmerSetId);
         // * Check that b1 is finalized;
         bytes32 b1Id = b1.header.getBlockId();
         require(isFinalized(chain, b1Id));

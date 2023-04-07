@@ -3,29 +3,20 @@ import chai, { expect } from "chai";
 import chaiSubset from "chai-subset";
 import { ethers } from "hardhat";
 import { utils, Wallet } from 'ethers';
-import { encodeBlockBody, encodeConfirmer, encodeHeader, getBlockBodyId, getBlockDigest, getBlockId, getConfirmerSetId, normalizeHexStr, randomBytes32, randomBytes32Hex, randomSig, setBlockSignatures, sign } from "../interface/abi";
-import { Block, BlockHeader, Message, Confirmer, Signature } from "../interface/types";
+import {
+  encodeBlockBody, encodeConfirmer, encodeHeader, getBlockBodyId, getBlockDigest, getBlockId,
+  getConfirmerSetId, normalizeHexStr, randomBytes32, randomBytes32Hex, randomSig, sign
+} from "../interface/abi";
+import { Block, BlockHeader, Message, Confirmer, Signature, BlockBody } from "../interface/types";
 import { MinEthersFactory } from "../typechain-types/common";
 
 chai.use(chaiSubset);
 
-export async function randomBlockHeaderSig1(): Promise<BlockHeader> {
+export async function randomBlockHeader(): Promise<BlockHeader> {
   return {
     prevBlockId: randomBytes32(),
     blockBodyId: randomBytes32(),
-    confirmerSetId: randomBytes32(),
     timestamp: await time.latest(),
-    sigs: randomSig()
-  }
-}
-
-export async function randomBlockHeaderSig3(): Promise<BlockHeader> {
-  return {
-    prevBlockId: randomBytes32(),
-    blockBodyId: randomBytes32(),
-    confirmerSetId: randomBytes32(),
-    timestamp: await time.latest(),
-    sigs: utils.concat([randomSig(), randomSig(), randomSig()])
   }
 }
 
@@ -73,31 +64,10 @@ describe("FirmChainAbi", function () {
     const fchainAbi = await loadFixture(deployAbiProxy);
   });
 
-  it("Should encode a block header without sigs", async function() {
+  it("Should encode a block header", async function() {
     const { abiLib, abiProxy } = await loadFixture(deployAbiProxy);
 
-    const header = await randomBlockHeaderSig1();
-    header.sigs = [];
-
-    const packedHeader = encodeHeader(header);
-
-    expect(await abiProxy.encode(header)).to.equal(packedHeader);
-  });
-
-  it("Should encode a block header with sig", async function() {
-    const { abiLib, abiProxy } = await loadFixture(deployAbiProxy);
-
-    const header = await randomBlockHeaderSig1();
-
-    const packedHeader = encodeHeader(header);
-
-    expect(await abiProxy.encode(header)).to.equal(packedHeader);
-  });
-
-  it("Should encode a block header with sig", async function() {
-    const { abiLib, abiProxy } = await loadFixture(deployAbiProxy);
-
-    const header = await randomBlockHeaderSig3();
+    const header = await randomBlockHeader();
 
     const packedHeader = encodeHeader(header);
 
@@ -135,7 +105,7 @@ describe("FirmChainAbi", function () {
   it("Should compute block id", async function() {
     const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
 
-    const header = await randomBlockHeaderSig3();
+    const header = await randomBlockHeader();
     const expectedId = getBlockId(header);
 
     expect(await abiProxy.getBlockId(header)).to.equal(expectedId);
@@ -184,9 +154,15 @@ describe("FirmChainAbi", function () {
       }
     ];
 
-    const expected = encodeBlockBody(msgs);
+    const body: BlockBody = {
+      confirmerSetId: randomBytes32(),
+      mirror: randomBytes32(),
+      msgs,
+    };
 
-    const encoded = await abiProxy.encodeBlockBody(msgs);
+    const expected = encodeBlockBody(body);
+
+    const encoded = await abiProxy.encodeBlockBody({ ...body, header: await randomBlockHeader() });
 
     expect(encoded).to.equal(expected);
   });
@@ -209,12 +185,18 @@ describe("FirmChainAbi", function () {
       }
     ];
 
-    const block: Block = {
-      header: await randomBlockHeaderSig1(),
-      msgs
+    const body: BlockBody = {
+      confirmerSetId: randomBytes32(),
+      mirror: randomBytes32(),
+      msgs,
     };
 
-    const encoded = await abiProxy.encodeBlockBody(msgs);
+    const block: Block = {
+      ...body,
+      header: await randomBlockHeader(),
+    };
+
+    const encoded = await abiProxy.encodeBlockBody(block);
 
     expect(await abiProxy.getBlockBodyId(block)).to.equal(utils.keccak256(encoded));
   });
@@ -238,9 +220,15 @@ describe("FirmChainAbi", function () {
       }
     ];
 
+    const body: BlockBody = {
+      confirmerSetId: randomBytes32(),
+      mirror: randomBytes32(),
+      msgs,
+    };
+
     const block: Block = {
-      header: await randomBlockHeaderSig1(),
-      msgs
+      ...body,
+      header: await randomBlockHeader(),
     };
 
     const expectedId = getBlockBodyId(block); 
@@ -267,9 +255,15 @@ describe("FirmChainAbi", function () {
       }
     ];
 
+    const body: BlockBody = {
+      confirmerSetId: randomBytes32(),
+      mirror: randomBytes32(),
+      msgs,
+    };
+
     const block: Block = {
-      header: await randomBlockHeaderSig1(),
-      msgs
+      ...body,
+      header: await randomBlockHeader(),
     };
 
     expect(await abiProxy.verifyBlockBodyId(block)).to.be.false;
@@ -278,70 +272,36 @@ describe("FirmChainAbi", function () {
   it("Should compute block digest", async function() {
     const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
 
-    const header = await randomBlockHeaderSig1();
+    const header = await randomBlockHeader();
     const expected = getBlockDigest(header);
 
     expect(await abiProxy.getBlockDigest(header)).to.equal(expected); 
   });
 
-  it("Should get the right sig", async function() {
-    const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
-
-    const header = await randomBlockHeaderSig1();
-    const sig: Signature = { r: randomBytes32Hex(), s: randomBytes32Hex(), v: 8 };
-    const otherSig: Signature = { r: randomBytes32(), s: randomBytes32(), v: 7 };
-    await setBlockSignatures(
-      header,
-      [otherSig, sig, otherSig, otherSig]
-    );
-
-    expect(await abiProxy.getSig(header, 1)).to.containSubset(sig);
-
-    await setBlockSignatures(
-      header,
-      [sig, otherSig, otherSig, otherSig]
-    );
-    expect(await abiProxy.getSig(header, 0)).to.containSubset(sig);
-
-    await setBlockSignatures(
-      header,
-      [otherSig, otherSig, otherSig, sig]
-    );
-    expect(await abiProxy.getSig(header, 3)).to.containSubset(sig);
-  });
-
-  it("Should revert on attempt to get non-existent sig", async function() {
-    const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
-
-    const header = await randomBlockHeaderSig3();
-
-    await expect(abiProxy.getSig(header, 3)).to.be.revertedWith("sigIndex too big"); 
-  });
-
   it("Should verify that block signature is invalid", async function() {
     const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
 
-    const header = await randomBlockHeaderSig3();
+    const header = await randomBlockHeader();
 
-    expect(await abiProxy.verifySigInBlock(header, 0, signers[0].address)).to.be.false;
-    expect(await abiProxy.verifySigInBlock(header, 2, signers[1].address)).to.be.false;
+    const sig = randomSig();
+
+    expect(await abiProxy.verifyBlockSig(header, sig, signers[0].address)).to.be.false;
+    expect(await abiProxy.verifyBlockSig(header, sig, signers[1].address)).to.be.false;
   });
 
   it("Should verify that block signature is valid", async function() {
     const { abiProxy } = await loadFixture(deployAbiProxy);
     const wallets = await createWallets();
 
-    const header = await randomBlockHeaderSig1();
+    const header = await randomBlockHeader();
     const digest = getBlockDigest(header);
 
     const sig = wallets[0]._signingKey().signDigest(digest);
-    const otherSig: Signature = { r: randomBytes32(), s: randomBytes32(), v: 7 };
-    await setBlockSignatures(header, [sig, otherSig, otherSig]);
 
-    expect(await abiProxy.verifySigInBlock(header, 0, wallets[0].address)).to.be.true;
+    expect(await abiProxy.verifyBlockSig(header, sig, wallets[0].address)).to.be.true;
 
-    const header2 = await sign(wallets[1], header);
-    expect(await abiProxy.verifySigInBlock(header2, 3, wallets[1].address)).to.be.true;
+    const sig2 = await sign(wallets[1], header);
+    expect(await abiProxy.verifyBlockSig(header, sig2, wallets[1].address)).to.be.true;
   });
 
 });

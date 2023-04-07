@@ -9,7 +9,7 @@ import {
   SignatureStruct,
 } from "../typechain-types/contracts/FirmChainAbi";
 import { IFirmChain } from "../typechain-types/contracts/IFirmChain";
-import { ethers, Wallet, BaseContract, } from "ethers";
+import { ethers, Wallet, BytesLike, } from "ethers";
 import { ConfirmerOpStruct, } from "../typechain-types/contracts/FirmChain";
 import { Optional, Overwrite, ValuesType } from "utility-types";
 import { string } from "hardhat/internal/core/params/argumentTypes";
@@ -46,6 +46,11 @@ export type BlockHeader = BlockHeaderStruct;
 export type Message = MessageStruct;
 export type Signature = SignatureStruct;
 export type ConfirmerOp = ConfirmerOpStruct;
+export type BlockBody = {
+  confirmerSetId: PromiseOrValue<BytesLike>;
+  mirror: PromiseOrValue<BytesLike>;
+  msgs: MessageStruct[];
+}
 
 export type ConfirmerOutput = ConfirmerStructOutput;
 
@@ -60,6 +65,7 @@ export type MessageValue = Unpromised<Message>;
 export type SignatureValue = Unpromised<Signature>
 export type ConfirmerOpValue = 
   Overwrite<Unpromised<ConfirmerOp>, { conf: ConfirmerValue }>;
+export type BlockBodyValue = Unpromised<BlockBody>;
 
 export const ZeroId = ethers.constants.HashZero;
 export const ZeroAddr = ethers.constants.AddressZero;
@@ -69,7 +75,7 @@ export const ConfirmerOpId = {
   Remove: 1
 } as const;
 
-export function isBlock(bl: BlockHeader | Block): bl is Block {
+export function isBlock(bl: BlockHeader | Block | ExtendedBlock): bl is Block {
   return 'header' in bl;
 }
 
@@ -118,17 +124,18 @@ export type ExtendedBlock = Block & {
   state: ChainState,
   contract: IFirmChain,
   signers: Wallet[],
+  signatures: Signature[],
 }
-export type UnsignedBlock = Optional<ExtendedBlock, 'signers'>;
+export type UnsignedBlock = Optional<ExtendedBlock, 'signers' | 'signatures'>;
 export type NoContractBlock = Optional<ExtendedBlock, 'contract'>;
-export type OptExtendedBlock = Optional<ExtendedBlock, 'signers' | 'contract'>;
+export type OptExtendedBlock = Optional<ExtendedBlock, 'signers' | 'contract' | 'signatures'>;
 export type GenesisBlock = OptExtendedBlock;
 
 export type ExtendedBlockValue = 
   Overwrite<Unpromised<ExtendedBlock>, { contract: AddressStr, signers: AddressStr[] }>;
 export type UnsignedBlockValue = Optional<ExtendedBlockValue, 'signers'>;
 export type NoContractBlockValue = Optional<ExtendedBlockValue, 'contract'>;
-export type OptExtendedBlockValue = Optional<ExtendedBlockValue, 'contract' | 'signers'>;
+export type OptExtendedBlockValue = Optional<ExtendedBlockValue, 'contract' | 'signers' | 'signatures'>;
 export type GenesisBlockValue = OptExtendedBlockValue;
 
 // export async function arrayToValue<T extends Array<infer V>>(promisedArr: T): Promise<Unpromised<T>> {

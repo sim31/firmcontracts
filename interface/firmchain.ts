@@ -1,10 +1,10 @@
 import {
   Confirmer, ConfirmerOp, ConfirmerOpId, ExtendedBlock, isConfirmer, Message,
   UnsignedBlock, BlockHeader, ConfirmerSet, InitConfirmerSet, ZeroId,
-  GenesisBlock, NoContractBlock, ConfirmerValue, GenesisBlockValue, toValue, ConfirmerOpValue, ExtendedBlockValue, OptExtendedBlockValue, AddressStr, isWallet, AccountValue,
+  GenesisBlock, NoContractBlock, ConfirmerValue, GenesisBlockValue, toValue, ConfirmerOpValue, ExtendedBlockValue, OptExtendedBlockValue, AddressStr, isWallet, AccountValue, BlockBody,
 } from './types'
-import { Wallet, BaseContract } from 'ethers';
-import { normalizeHexStr, getBlockBodyId, getBlockId, sign, getConfirmerSetId, decodeConfirmer, getCurrentTimestamp, } from './abi';
+import { Wallet, BaseContract, BytesLike } from 'ethers';
+import { normalizeHexStr, getBlockBodyId, getBlockId, sign, getConfirmerSetId, decodeConfirmer, getCurrentTimestamp, randomBytes32, batchSign, } from './abi';
 import { FirmChain, IFirmChain } from '../typechain-types';
 import { boolean } from 'hardhat/internal/core/params/argumentTypes';
 import { AccountStruct } from '../typechain-types/contracts/AccountSystem';
@@ -111,6 +111,7 @@ export function updatedConfirmerSet(
 export async function createUnsignedBlock(
   prevBlock: ExtendedBlock,
   messages: Message[],
+  mirror: BytesLike = ZeroId,
   confirmerOps?: ConfirmerOpValue[],
   newThreshold?: number,
   ignoreConfirmerSetFail?: boolean,
@@ -132,19 +133,22 @@ export async function createUnsignedBlock(
     );
   }
 
+  const body: BlockBody = {
+    confirmerSetId: await getConfirmerSetId(confSet.confirmers, confSet.threshold),
+    msgs: messages,
+    mirror,
+  };
+
   let newHeader: BlockHeader = {
     prevBlockId: getBlockId(prevHeader),
-    blockBodyId: getBlockBodyId(messages),
-    confirmerSetId: await getConfirmerSetId(confSet.confirmers, confSet.threshold),
-    // TODO: Set current time
+    blockBodyId: getBlockBodyId(body),
     timestamp: getCurrentTimestamp(),
-    sigs: []
-  }
+  };
 
   return {
+    ...body,
     contract: prevBlock.contract,
     header: newHeader,
-    msgs: messages,
     state: {
       confirmerSet: confSet,
       blockNum: prevBlock.state.blockNum + 1,
@@ -159,13 +163,15 @@ export async function createBlock(
   prevBlock: ExtendedBlock,
   messages: Message[],
   signers: Wallet[],
+  mirror: BytesLike = ZeroId,
   confirmerOps?: ConfirmerOpValue[],
   newThreshold?: number,
   ignoreConfirmerSetFail?: boolean,
 ): Promise<ExtendedBlock> {
-  const block = await createUnsignedBlock(prevBlock, messages, confirmerOps, newThreshold, ignoreConfirmerSetFail);
-  block.header = await sign(signers, block.header);
+  const block = await createUnsignedBlock(prevBlock, messages, mirror, confirmerOps, newThreshold, ignoreConfirmerSetFail);
+  const sigs = await batchSign(signers, block.header);
   block.signers = signers;
+  block.signatures = sigs;
 
   return block as ExtendedBlock;
 }
@@ -175,33 +181,38 @@ export async function signBlock(
   signers: Wallet | Wallet[]
 ): Promise<ExtendedBlock> {
   const wallets = Array.isArray(signers) ? signers : [signers];
-  const newHeader = await sign(wallets, block.header);    
+  const sigs = await batchSign(wallets, block.header);    
   return {
     ...block,
-    header: newHeader,
     signers: wallets,
+    signatures: sigs,
   };
 }
 
 export async function createGenesisBlock(
   messages: Message[],
+  mirror: BytesLike = ZeroId,
   confirmerOps?: ConfirmerOpValue[],
   newThreshold?: number,
 ): Promise<GenesisBlock> {
   const confSet = updatedConfirmerSet(InitConfirmerSet, confirmerOps, newThreshold);
 
+  const blockBody: BlockBody = {
+    confirmerSetId: await getConfirmerSetId(confSet.confirmers, confSet.threshold),
+    msgs: messages,
+    mirror,
+  };
+
   let newHeader: BlockHeader = {
     prevBlockId: ZeroId,
-    blockBodyId: getBlockBodyId(messages),
-    confirmerSetId: await getConfirmerSetId(confSet.confirmers, confSet.threshold),
+    blockBodyId: getBlockBodyId(blockBody),
     // TODO: Set current time
     timestamp: getCurrentTimestamp(),
-    sigs: []
   }
 
   return {
+    ...blockBody,
     header: newHeader,
-    msgs: messages,
     state: {
       confirmerSet: confSet,
       blockNum: 0,
@@ -209,14 +220,15 @@ export async function createGenesisBlock(
     },
   };
 }
-export async function createGenesisBlockVal(...args: Parameters<typeof createGenesisBlock>): Promise<GenesisBlockValue> {
-  const values = await toValue(await createGenesisBlock(...args));
-  return {
-    ...values,
-    contract: values.contract?.address,
-    signers: values.signers?.map(s => s.address),
-  };
-}
+// export async function createGenesisBlockVal(...args: Parameters<typeof createGenesisBlock>): Promise<GenesisBlockValue> {
+//   const values = await toValue(await createGenesisBlock(...args));
+//   return {
+//     ...values,
+//     contract: values.contract?.address,
+//     signers: values.signers?.map(s => s.address),
+//     signatures: values.signatures,
+//   };
+// }
 
 export async function createBlockTemplate(prevBlock: ExtendedBlock) {
   return createBlock(prevBlock, [], []);

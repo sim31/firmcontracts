@@ -28,7 +28,7 @@ export async function deployFirmDirectory(
   const confOps: ConfirmerOpValue[] = confirmers.map((conf) => {
     return createAddConfirmerOp(conf, 1);
   });
-  const genesisBlock = await createGenesisBlock([], confOps, threshold);
+  const genesisBlock = await createGenesisBlock([], ZeroId, confOps, threshold);
 
   const deployCall = factory.deploy(genesisBlock, confOps, threshold);
   await expect(deployCall).to.not.be.reverted;
@@ -37,6 +37,7 @@ export async function deployFirmDirectory(
     ...genesisBlock,
     contract: chain,
     signers: [],
+    signatures: [],
   };
 
   return {

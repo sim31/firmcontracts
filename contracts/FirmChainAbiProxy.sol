@@ -38,8 +38,8 @@ contract FirmChainAbiProxy {
         return FirmChainAbi.getConfirmerSetId(confirmers, threshold);
     }
 
-    function encodeBlockBody(Message[] calldata calls) public pure returns(bytes memory) {
-        return FirmChainAbi.encodeBlockBody(calls);
+    function encodeBlockBody(Block calldata bl) public pure returns(bytes memory) {
+        return FirmChainAbi.encodeBlockBody(bl);
     }
 
     function getBlockBodyId(Block calldata bl) public pure returns (bytes32) {
@@ -57,16 +57,11 @@ contract FirmChainAbiProxy {
         return FirmChainAbi.getBlockDigest(header);
     }
 
-    function getSig(BlockHeader calldata header, uint8 sigIndex) public pure returns(Signature memory) {
-        return FirmChainAbi.getSig(header, sigIndex);
-    }
-
-    function verifySigInBlock(
+    function verifyBlockSig(
         BlockHeader calldata header,
-        uint8 sigIndex,
+        Signature calldata sig,
         address signer
     ) public pure returns (bool) {
-        return FirmChainAbi.verifySigInBlock(header, sigIndex, signer);
+        return FirmChainAbi.verifyBlockSig(header, sig, signer);        
     }
-
 }

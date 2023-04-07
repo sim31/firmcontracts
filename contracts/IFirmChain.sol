@@ -15,7 +15,7 @@ interface IFirmChain {
     function extConfirm(
         BlockHeader calldata header,
         address signatory,
-        uint8 sigIndex
+        Signature calldata sig
     ) 
         external 
         returns(bool);
