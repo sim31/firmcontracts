@@ -33,6 +33,7 @@
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.8.0",
+    "@zoltu/deterministic-deployment-proxy": "github:sim31/deterministic-deployment-proxy",
     "utility-types": "^3.10.0"
   }
 }

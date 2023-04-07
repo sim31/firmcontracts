@@ -37,6 +37,7 @@ export async function deployChain(
     }
   );
 
+
   const confOps: ConfirmerOpValue[] = confirmers.map((conf) => {
     return createAddConfirmerOp(conf, 1);
   });
@@ -289,7 +290,15 @@ describe("FirmChain", function () {
 
         expect(head).to.equal(getBlockId(ord2Chain.genesisBl.header));
       });
-    })
+    });
+
+    // describe("Deterministic address", async function() {
+    //   it("Should deploy at a known address", async function() {
+    //     const detFactory = await loadFixture(deployFactory); 
+
+        
+    //   });
+    // });
 
   });
 

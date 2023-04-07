@@ -10,8 +10,6 @@ import {
 import { Block, BlockHeader, Message, Confirmer, Signature, BlockBody } from "../interface/types";
 import { MinEthersFactory } from "../typechain-types/common";
 
-chai.use(chaiSubset);
-
 export async function randomBlockHeader(): Promise<BlockHeader> {
   return {
     prevBlockId: randomBytes32(),
