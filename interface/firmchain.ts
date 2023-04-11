@@ -1,7 +1,7 @@
 import {
   Confirmer, ConfirmerOp, ConfirmerOpId, ExtendedBlock, isConfirmer, Message,
   UnsignedBlock, BlockHeader, ConfirmerSet, InitConfirmerSet, ZeroId,
-  GenesisBlock, NoContractBlock, ConfirmerValue, GenesisBlockValue, toValue, ConfirmerOpValue, ExtendedBlockValue, OptExtendedBlockValue, AddressStr, isWallet, AccountValue, BlockBody,
+  GenesisBlock, NoContractBlock, ConfirmerValue, GenesisBlockValue, toValue, ConfirmerOpValue, ExtendedBlockValue, OptExtendedBlockValue, AddressStr, isWallet, AccountValue, BlockBody, Unpromised,
 } from './types'
 import { Wallet, BaseContract, BytesLike } from 'ethers';
 import { normalizeHexStr, getBlockBodyId, getBlockId, sign, getConfirmerSetId, decodeConfirmer, getCurrentTimestamp, randomBytes32, batchSign, } from './abi';
@@ -220,15 +220,17 @@ export async function createGenesisBlock(
     },
   };
 }
-// export async function createGenesisBlockVal(...args: Parameters<typeof createGenesisBlock>): Promise<GenesisBlockValue> {
-//   const values = await toValue(await createGenesisBlock(...args));
-//   return {
-//     ...values,
-//     contract: values.contract?.address,
-//     signers: values.signers?.map(s => s.address),
-//     signatures: values.signatures,
-//   };
-// }
+
+export async function createGenesisBlockVal(...args: Parameters<typeof createGenesisBlock>): Promise<GenesisBlockValue> {
+  const values = await toValue(await createGenesisBlock(...args));
+  type Val = Unpromised<GenesisBlock>;
+  return {
+    ...values,
+    contract: values.contract?.address,
+    signers: values.signers?.map(s => s.address),
+    signatures: values.signatures,
+  };
+}
 
 export async function createBlockTemplate(prevBlock: ExtendedBlock) {
   return createBlock(prevBlock, [], []);

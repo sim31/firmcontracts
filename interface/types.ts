@@ -27,10 +27,14 @@ export type IPFSLink = string;
 export type Unpromised<T> = {
   [P in keyof T]:
     T[P] extends object ?
-      T[P] extends Array<infer V> ?
+      (
+        T[P] extends Array<infer V> ?
         Array<Unpromised<V>> :
-      Unpromised<T[P]> :
-    Awaited<T[P]>;
+        Unpromised<T[P]>
+      )
+    : undefined extends T[P] ?
+      Unpromised<Required<T[P]>> | undefined :
+      Awaited<T[P]>
 }
 
 // 
@@ -124,12 +128,14 @@ export type ExtendedBlock = Block & {
   state: ChainState,
   contract: IFirmChain,
   signers: Wallet[],
-  signatures: Signature[],
+  signatures: SignatureStruct[],
 }
+
 export type UnsignedBlock = Optional<ExtendedBlock, 'signers' | 'signatures'>;
 export type NoContractBlock = Optional<ExtendedBlock, 'contract'>;
 export type OptExtendedBlock = Optional<ExtendedBlock, 'signers' | 'contract' | 'signatures'>;
 export type GenesisBlock = OptExtendedBlock;
+type Val = Unpromised<OptExtendedBlock>;
 
 export type ExtendedBlockValue = 
   Overwrite<Unpromised<ExtendedBlock>, { contract: AddressStr, signers: AddressStr[] }>;
