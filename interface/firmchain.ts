@@ -1,11 +1,11 @@
 import {
   Confirmer, ConfirmerOp, ConfirmerOpId, ExtendedBlock, isConfirmer, Message,
   UnsignedBlock, BlockHeader, ConfirmerSet, InitConfirmerSet, ZeroId,
-  GenesisBlock, NoContractBlock, ConfirmerValue, GenesisBlockValue, toValue, ConfirmerOpValue, ExtendedBlockValue, OptExtendedBlockValue, AddressStr, isWallet, AccountValue, BlockBody, Unpromised,
+  GenesisBlock, NoContractBlock, ConfirmerValue, GenesisBlockValue, toValue, ConfirmerOpValue, ExtendedBlockValue, OptExtendedBlockValue, AddressStr, isWallet, AccountValue, BlockBody, Unpromised, UnsignedBlockValue,
 } from './types'
 import { Wallet, BaseContract, BytesLike } from 'ethers';
 import { normalizeHexStr, getBlockBodyId, getBlockId, sign, getConfirmerSetId, decodeConfirmer, getCurrentTimestamp, randomBytes32, batchSign, } from './abi';
-import { FirmChain, IFirmChain } from '../typechain-types';
+import { FirmChain, FirmChain__factory, IFirmChain } from '../typechain-types';
 import { boolean } from 'hardhat/internal/core/params/argumentTypes';
 import { AccountStruct } from '../typechain-types/contracts/AccountSystem';
 
@@ -223,13 +223,47 @@ export async function createGenesisBlock(
 
 export async function createGenesisBlockVal(...args: Parameters<typeof createGenesisBlock>): Promise<GenesisBlockValue> {
   const values = await toValue(await createGenesisBlock(...args));
-  type Val = Unpromised<GenesisBlock>;
   return {
     ...values,
     contract: values.contract?.address,
     signers: values.signers?.map(s => s.address),
     signatures: values.signatures,
   };
+}
+
+export async function createUnsignedBlockVal(
+  prevBlockVal: OptExtendedBlockValue,
+  contract: IFirmChain,
+  messages: Message[],
+  mirror: BytesLike = ZeroId,
+  confirmerOps?: ConfirmerOpValue[],
+  newThreshold?: number,
+  ignoreConfirmerSetFail?: boolean,
+): Promise<UnsignedBlockValue> {
+  if (contract.address !== prevBlockVal.contract) {
+    throw new Error("Contract address in block does not match passed contract");
+  }
+  const prevBlock: ExtendedBlock = {
+    ...prevBlockVal,
+    contract,
+    signers: [], // won't be used anyway
+    signatures: prevBlockVal.signatures ? prevBlockVal.signatures : [],
+  };
+
+  const block = await createUnsignedBlock(
+    prevBlock,
+    messages, mirror, confirmerOps, newThreshold,
+    ignoreConfirmerSetFail
+  );
+
+  const values = await toValue(block);
+  return {
+    ...values,
+    contract: values.contract?.address,
+    signers: values.signers?.map(s => s.address),
+    signatures: [], // This is unsigned block
+  };
+  
 }
 
 export async function createBlockTemplate(prevBlock: ExtendedBlock) {

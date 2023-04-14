@@ -11,6 +11,7 @@ import {
 import { IFirmChain } from "../typechain-types/contracts/IFirmChain";
 import { ethers, Wallet, BytesLike, } from "ethers";
 import { ConfirmerOpStruct, } from "../typechain-types/contracts/FirmChain";
+import { EdenPlusFractal } from '../typechain-types/contracts/EdenPlusFractal';
 import { Optional, Overwrite, ValuesType } from "utility-types";
 import { string } from "hardhat/internal/core/params/argumentTypes";
 import { PromiseOrValue } from "../typechain-types/common";
@@ -50,6 +51,7 @@ export type BlockHeader = BlockHeaderStruct;
 export type Message = MessageStruct;
 export type Signature = SignatureStruct;
 export type ConfirmerOp = ConfirmerOpStruct;
+export type BreakoutResults = EdenPlusFractal.BreakoutResultsStruct;
 export type BlockBody = {
   confirmerSetId: PromiseOrValue<BytesLike>;
   mirror: PromiseOrValue<BytesLike>;
