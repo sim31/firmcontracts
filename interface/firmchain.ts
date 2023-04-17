@@ -94,7 +94,7 @@ export function updatedConfirmerSet(
         const lastIndex = confs.length - 1;
         if (lastIndex !== toDeleteIndex) {
           const lastConf = confs[lastIndex];
-          confs[toDeleteIndex] = lastConf;
+          confs[toDeleteIndex] = lastConf!;
         }
         confs.pop();
       }
@@ -300,7 +300,7 @@ export function blocksWithConfirmInfo(
   const bs = new Array<OptExtendedBlockValue>();
   let index = 1;
   while (index < blocks.length) {
-    bs.push(withConfirmInfo(blocks[index-1], blocks[index]));
+    bs.push(withConfirmInfo(blocks[index-1]!, blocks[index]!));
     index++;
   }
   return bs;

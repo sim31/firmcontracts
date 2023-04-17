@@ -34,9 +34,13 @@ export async function encodeConfirmer(conf: Confirmer): Promise<BytesLike> {
 }
 
 export function decodeConfirmer(b: BytesLike): ConfirmerValue {
+  const weight = utils.arrayify(utils.hexDataSlice(b, 31, 32))[0];
+  if (!weight) {
+    throw new Error("Not enough bytes passed");
+  }
   const confirmer: ConfirmerValue = {
     addr: utils.hexDataSlice(b, 11, 31),
-    weight: utils.arrayify(utils.hexDataSlice(b, 31, 32))[0],
+    weight,
   }
   return confirmer;
 }
