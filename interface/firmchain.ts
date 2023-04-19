@@ -6,8 +6,6 @@ import {
 import { Wallet, BaseContract, BytesLike } from 'ethers';
 import { normalizeHexStr, getBlockBodyId, getBlockId, sign, getConfirmerSetId, decodeConfirmer, getCurrentTimestamp, randomBytes32, batchSign, } from './abi';
 import { FirmChain, FirmChain__factory, IFirmChain } from '../typechain-types';
-import { boolean } from 'hardhat/internal/core/params/argumentTypes';
-import { AccountStruct } from '../typechain-types/contracts/AccountSystem';
 
 export function createAddConfirmerOps(confs: Confirmer[]): ConfirmerOp[] {
   return confs.map(conf => { return {opId:  ConfirmerOpId.Add, conf} });
