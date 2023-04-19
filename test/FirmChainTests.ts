@@ -148,7 +148,7 @@ export async function extConfirmByAll(chain: IFirmChain, wallets: Wallet[], bloc
   const signatures = 'signatures' in block && block['signatures'].length == wallets.length ? block['signatures'] : undefined;
   for (const [index, wallet] of wallets.entries()) {
     const sig = signatures ? signatures[index] : await sign(wallet, header);
-    await expect(chain.extConfirm(header, wallet.address, sig)).to.not.be.reverted;
+    await expect(chain.extConfirm(header, wallet.address, sig!)).to.not.be.reverted;
   }
 }
 
@@ -320,7 +320,7 @@ describe("FirmChain", function () {
       };
       let blockId = getBlockId(header);
 
-      expect(await chain.isConfirmedBy(blockId, confirmerValues[0].addr)).to.be.false;
+      expect(await chain.isConfirmedBy(blockId, confirmerValues[0]!.addr)).to.be.false;
     })
   })
 
@@ -333,9 +333,9 @@ describe("FirmChain", function () {
         blockBodyId: randomBytes32(),
       }
 
-      const sig = await sign(wallets[0], header);
+      const sig = await sign(wallets[0]!, header);
 
-      const confirmCall = chain.extConfirm(header, wallets[1].address, sig);
+      const confirmCall = chain.extConfirm(header, wallets[1]!.address, sig);
       await expect(confirmCall).to.be.reverted;
     });
 
@@ -347,9 +347,9 @@ describe("FirmChain", function () {
         blockBodyId: randomBytes32(),
       }
 
-      const sig = await sign(wallets[0], header);
+      const sig = await sign(wallets[0]!, header);
 
-      const confirmCall = chain.extConfirm(header, wallets[0].address, sig);
+      const confirmCall = chain.extConfirm(header, wallets[0]!.address, sig);
       await expect(confirmCall).to.not.be.reverted;
     })
 
@@ -361,20 +361,20 @@ describe("FirmChain", function () {
         blockBodyId: randomBytes32(),
       }
 
-      const sig = await sign(wallets[0], header);
+      const sig = await sign(wallets[0]!, header);
 
-      const confirmCall = chain.extConfirm(header, wallets[0].address, sig);
+      const confirmCall = chain.extConfirm(header, wallets[0]!.address, sig);
       await expect(confirmCall).to.not.be.reverted;
 
       const blockId = getBlockId(header);
 
-      expect(await chain.isConfirmedBy(blockId, wallets[0].address)).to.be.true;
+      expect(await chain.isConfirmedBy(blockId, wallets[0]!.address)).to.be.true;
     });
 
     it("Should record multiple confirmations", async function() {
       const { chain, wallets, nextHeader } = await loadFixture(deployChainFixt);
 
-      const confWallets = [wallets[0], wallets[1], wallets[2]];
+      const confWallets = [wallets[0]!, wallets[1]!, wallets[2]!];
       const header = {
         ...nextHeader,
         blockBodyId: randomBytes32(),
@@ -383,7 +383,7 @@ describe("FirmChain", function () {
       await extConfirmByAll(chain, confWallets, header);
 
       await checkConfirmations(chain, confWallets, header);
-      expect(await chain.isConfirmedBy(getBlockId(header), wallets[4].address)).to.be.false;
+      expect(await chain.isConfirmedBy(getBlockId(header), wallets[4]!.address)).to.be.false;
     });
   });
 
@@ -398,7 +398,7 @@ describe("FirmChain", function () {
       const newChain1 = await createBlockAndFinalize(
         chain1,
         [createMsg(ord2Chain.chain, 'confirm', [block.header])],
-        [wallets[0], wallets[1], wallets[2], wallets[3]],
+        [wallets[0]!, wallets[1]!, wallets[2]!, wallets[3]!],
       );
 
       expect(await ord2Chain.chain.isConfirmedBy(getBlockId(block.header), chain1.chain.address)).to.be.false;
@@ -416,23 +416,23 @@ describe("FirmChain", function () {
       await createBlockAndExecute(
         chain1,
         [createMsg(ord2Chain.chain, 'confirm', [block.header])],
-        [wallets[0], wallets[1], wallets[2], wallets[3]],
+        [wallets[0]!, wallets[1]!, wallets[2]!, wallets[3]!],
       );
       await createBlockAndExecute(
         chain2,
         [createMsg(ord2Chain.chain, 'confirm', [block.header])],
-        [wallets[4], wallets[5], wallets[6], wallets[7]],
+        [wallets[4]!, wallets[5]!, wallets[6]!, wallets[7]!],
       );
 
       await expect(ord2Chain.chain.finalize(block.header)).to.not.be.reverted;
 
       const altBlock = await createBlock(ord2Chain.genesisBl, [], [], ZeroId, [
-        createAddConfirmerOp(wallets[0].address, 1)
+        createAddConfirmerOp(wallets[0]!.address, 1)
       ]);
       const newChain3 = await createBlockAndFinalize(
         chain3,
         [createMsg(ord2Chain.chain, 'confirm', [altBlock.header])],
-        [wallets[8], wallets[10], wallets[11]],
+        [wallets[8]!, wallets[10]!, wallets[11]!],
       );
 
       await expect(chain3.chain.execute(newChain3.lastFinalized)).to.emit(ord2Chain.chain, 'ByzantineFault');
@@ -446,23 +446,23 @@ describe("FirmChain", function () {
       const newChain1 = await createBlockAndExecute(
         chain1,
         [createMsg(ord2Chain.chain, 'confirm', [block.header])],
-        [wallets[0], wallets[1], wallets[2], wallets[3]],
+        [wallets[0]!, wallets[1]!, wallets[2]!, wallets[3]!],
       );
       await createBlockAndExecute(
         chain2,
         [createMsg(ord2Chain.chain, 'confirm', [block.header])],
-        [wallets[4], wallets[5], wallets[6], wallets[7]],
+        [wallets[4]!, wallets[5]!, wallets[6]!, wallets[7]!],
       );
 
       await expect(ord2Chain.chain.finalize(block.header)).to.not.be.reverted;
 
       const altBlock = await createBlock(ord2Chain.genesisBl, [], [], ZeroId, [
-        createAddConfirmerOp(wallets[0].address, 1)
+        createAddConfirmerOp(wallets[0]!.address, 1)
       ]);
       let newChain3 = await createBlockAndFinalize(
         chain3,
         [createMsg(ord2Chain.chain, 'confirm', [altBlock.header])],
-        [wallets[8], wallets[10], wallets[11]],
+        [wallets[8]!, wallets[10]!, wallets[11]!],
       );
 
       await expect(newChain3.chain.execute(newChain3.lastFinalized)).to.emit(ord2Chain.chain, 'ByzantineFault');
@@ -475,14 +475,14 @@ describe("FirmChain", function () {
       await createBlockAndExecute(
         newChain1,
         [createMsg(ord2Chain.chain, 'confirm', [block2.header])],
-        [wallets[0], wallets[1], wallets[2], wallets[3]],
+        [wallets[0]!, wallets[1]!, wallets[2]!, wallets[3]!],
       );
       expect(await ord2Chain.chain.isConfirmedBy(getBlockId(block2.header), chain1.chain.address)).to.be.true;
 
       await createBlockAndExecute(
         newChain3,
         [createMsg(ord2Chain.chain, 'confirm', [block2.header])],
-        [wallets[8], wallets[10], wallets[11]],
+        [wallets[8]!, wallets[10]!, wallets[11]!],
       );
       expect(await ord2Chain.chain.isConfirmedBy(getBlockId(block2.header), chain3.chain.address)).to.be.false;
     });
@@ -497,12 +497,12 @@ describe("FirmChain", function () {
         undefined, undefined, undefined, updatedConf,
       );
 
-      expect(await ord2Chain.chain.isConfirmedBy(getBlockId(newBlock.header), updatedConf[0].chain.address)).to.be.true;
+      expect(await ord2Chain.chain.isConfirmedBy(getBlockId(newBlock.header), updatedConf[0]!.chain.address)).to.be.true;
 
       const latestConf = await createBlockAndFinalize(
-        updatedConf[0],
+        updatedConf[0]!,
         [createMsg(newBlock.contract, 'confirm', [newBlock.header])],
-        updatedConf[0].confirmers,
+        updatedConf[0]!.confirmers,
       );
 
       await expect(latestConf.chain.execute(latestConf.lastFinalized))
@@ -522,9 +522,9 @@ describe("FirmChain", function () {
       const newerBlock = await createBlock(newBlock, [], []);
 
       const latestConf = await createBlockAndFinalize(
-        updatedConf[0],
+        updatedConf[0]!,
         [createMsg(newerBlock.contract, 'confirm', [newerBlock.header])],
-        updatedConf[0].confirmers,
+        updatedConf[0]!.confirmers,
       );
 
       await expect(latestConf.chain.execute(latestConf.lastFinalized))
@@ -539,7 +539,7 @@ describe("FirmChain", function () {
       const { chain, genesisBl } = ord2Chain;
 
       const block = await createBlock(genesisBl, [], []);
-      const altBlock = await createBlock(genesisBl, [], [], ZeroId, [createAddConfirmerOp(signers[0].address, 1)]);
+      const altBlock = await createBlock(genesisBl, [], [], ZeroId, [createAddConfirmerOp(signers[0]!.address, 1)]);
 
       const newChain1 = await createBlockAndFinalize(
         chain1,
@@ -577,7 +577,7 @@ describe("FirmChain", function () {
           ...nextHeader,
           blockBodyId: randomBytes32(),
         };
-        const confWallets = [wallets[0], wallets[1], wallets[2]];
+        const confWallets = [wallets[0]!, wallets[1]!, wallets[2]!];
 
         await extConfirmByAll(chain, confWallets, header);
 
@@ -592,7 +592,7 @@ describe("FirmChain", function () {
           blockBodyId: randomBytes32(),
         };
 
-        const confWallets = [wallets[0], wallets[1]];
+        const confWallets = [wallets[0]!, wallets[1]!];
 
         await extConfirmByAll(chain, confWallets, header);
 
@@ -607,7 +607,7 @@ describe("FirmChain", function () {
           blockBodyId: randomBytes32(),
         };
 
-        const confWallets = [wallets[0], wallets[1], wallets[2]];
+        const confWallets = [wallets[0]!, wallets[1]!, wallets[2]!];
 
         await extConfirmByAll(chain, confWallets, header);
 
@@ -627,7 +627,7 @@ describe("FirmChain", function () {
         const chain1Bl = await createBlockAndExecute(
           chain1,
           [createMsg(ord2Chain.chain, 'confirm', [block.header])],
-          [wallets[0], wallets[1], wallets[2], wallets[3]],
+          [wallets[0]!, wallets[1]!, wallets[2]!, wallets[3]!],
         );
         expect(await ord2Chain.chain.isConfirmedBy(getBlockId(block.header), chain1.chain.address)).to.be.true;
 
@@ -644,14 +644,14 @@ describe("FirmChain", function () {
         const chain1Bl = await createBlockAndExecute(
           chain1,
           [createMsg(ord2Chain.chain, 'confirm', [block.header])],
-          [wallets[0], wallets[1], wallets[2], wallets[3]],
+          [wallets[0]!, wallets[1]!, wallets[2]!, wallets[3]!],
         );
         expect(await ord2Chain.chain.isConfirmedBy(getBlockId(block.header), chain1.chain.address)).to.be.true;
 
         const chain2Bl = await createBlockAndExecute(
           chain2,
           [createMsg(ord2Chain.chain, 'confirm', [block.header])],
-          [wallets[4], wallets[5], wallets[6]],
+          [wallets[4]!, wallets[5]!, wallets[6]!],
         );
         expect(await ord2Chain.chain.isConfirmedBy(getBlockId(block.header), chain2.chain.address)).to.be.true;
 
@@ -668,14 +668,14 @@ describe("FirmChain", function () {
         const chain1Bl = await createBlockAndExecute(
           chain1,
           [createMsg(ord2Chain.chain, 'confirm', [block.header])],
-          [wallets[0], wallets[1], wallets[2], wallets[3]],
+          [wallets[0]!, wallets[1]!, wallets[2]!, wallets[3]!],
         );
         expect(await ord2Chain.chain.isConfirmedBy(getBlockId(block.header), chain1.chain.address)).to.be.true;
 
         const chain2Bl = await createBlockAndExecute(
           chain2,
           [createMsg(ord2Chain.chain, 'confirm', [block.header])],
-          [wallets[4], wallets[5], wallets[6]],
+          [wallets[4]!, wallets[5]!, wallets[6]!],
         );
         expect(await ord2Chain.chain.isConfirmedBy(getBlockId(block.header), chain2.chain.address)).to.be.true;
 
@@ -699,7 +699,7 @@ describe("FirmChain", function () {
           ...nextHeader,
           blockBodyId: getBlockBodyId(body),
         };
-        const confWallets = [wallets[0], wallets[1], wallets[2]];
+        const confWallets = [wallets[0]!, wallets[1]!, wallets[2]!];
         const block = {
           ...body,
           header,
@@ -719,16 +719,16 @@ describe("FirmChain", function () {
           const { token, chain, wallets, genesisBl } = await loadFixture(deployFirmChainToken);
 
           const issueMsgData = token.interface.encodeFunctionData('mint', [
-            wallets[5].address, 10
+            wallets[5]!.address, 10
           ]);
           const msg: Message = {
-            addr: wallets[4].address,
+            addr: wallets[4]!.address,
             cdata: issueMsgData,
           };
           const newBlock = await createBlock(
             genesisBl,
             [msg],
-            [wallets[0], wallets[1], wallets[2]],
+            [wallets[0]!, wallets[1]!, wallets[2]!],
           );
           
           await extConfirmByAll(chain, newBlock.signers, newBlock.header);
@@ -762,15 +762,15 @@ describe("FirmChain", function () {
 
           const newBlock = await createBlock(
             genesisBl,
-            [createMsg(token, 'mint', [wallets[5].address, 12])],
-            [wallets[0], wallets[1], wallets[3]],
+            [createMsg(token, 'mint', [wallets[5]!.address, 12])],
+            [wallets[0]!, wallets[1]!, wallets[3]!!],
           );
 
           await extConfirmByAll(chain, newBlock.signers, newBlock.header);
           await expect(chain.finalize(newBlock.header)).to.not.be.reverted;
           // If event is emitted that means the call did not fail
           await expect(chain.execute(newBlock)).to.emit(chain, "ExternalCall");
-          expect(await token.balanceOf(wallets[5].address)).to.be.equal(12);
+          expect(await token.balanceOf(wallets[5]!.address)).to.be.equal(12);
       });
 
       it(
@@ -780,21 +780,21 @@ describe("FirmChain", function () {
 
           const newBlock = await createBlock(
             genesisBl,
-            [createMsg(token, 'mint', [signers[5].address, 10])],
-            [wallets[0], wallets[1], wallets[3]],
+            [createMsg(token, 'mint', [signers[5]!.address, 10])],
+            [wallets[0]!, wallets[1]!, wallets[3]!],
           );
           
           await extConfirmByAll(chain, newBlock.signers, newBlock.header);
           await expect(chain.finalize(newBlock.header)).to.not.be.reverted;
           // If event is emitted that means the call did not fail
           await expect(chain.execute(newBlock)).to.emit(chain, "ExternalCall");
-          expect(await token.balanceOf(signers[5].address)).to.be.equal(10);
+          expect(await token.balanceOf(signers[5]!.address)).to.be.equal(10);
 
           await expect(
-            token.connect(signers[5]).transfer(wallets[4].address, 4)
+            token.connect(signers[5]!).transfer(wallets[4]!.address, 4)
           ).to.not.be.reverted;
-          expect(await token.balanceOf(signers[5].address)).to.be.equal(6);
-          expect(await token.balanceOf(wallets[4].address)).to.be.equal(4);
+          expect(await token.balanceOf(signers[5]!.address)).to.be.equal(6);
+          expect(await token.balanceOf(wallets[4]!.address)).to.be.equal(4);
       });
 
       it("Should fail for un-finalized blocks", async function() {
@@ -802,8 +802,8 @@ describe("FirmChain", function () {
 
           const newBlock = await createBlock(
             genesisBl,
-            [createMsg(token, 'mint', [signers[5].address, 10])],
-            [wallets[0], wallets[3]],
+            [createMsg(token, 'mint', [signers[5]!.address, 10])],
+            [wallets[0]!, wallets[3]!],
           );
 
           await extConfirmByAll(chain, newBlock.signers, newBlock.header);
@@ -816,15 +816,15 @@ describe("FirmChain", function () {
         it("Should mint token successfully", async () => {
           const { token, wallets, ord2Chain } = await loadFixture(deploy2ndOrderChainToken);
 
-          expect(await token.balanceOf(wallets[5].address)).to.be.equal(0);
+          expect(await token.balanceOf(wallets[5]!.address)).to.be.equal(0);
 
           await createBlockAndExecute(
             ord2Chain,
-            [createMsg(token, 'mint', [wallets[5].address, 12])],
+            [createMsg(token, 'mint', [wallets[5]!.address, 12])],
             ord2Chain.confirmers,
           );
 
-          expect(await token.balanceOf(wallets[5].address)).to.be.equal(12);
+          expect(await token.balanceOf(wallets[5]!.address)).to.be.equal(12);
 
         });
       });
@@ -837,13 +837,13 @@ describe("FirmChain", function () {
           const { confirmerValues, chain, wallets, genesisBl } = await loadFixture(deployChainFixt);
 
           const confOps = [
-            createRemoveConfirmerOp(confirmerValues[0]),
+            createRemoveConfirmerOp(confirmerValues[0]!),
           ];
 
           const newBlock = await createBlock(
             genesisBl,
             [],
-            [wallets[0], wallets[1], wallets[2]],
+            [wallets[0]!, wallets[1]!, wallets[2]!],
             ZeroId,
             confOps, 2,
           );
@@ -867,15 +867,15 @@ describe("FirmChain", function () {
           const { confirmerValues, chain, wallets, genesisBl } = await loadFixture(deployChainFixt);
 
           const confOps = [
-            createAddConfirmerOp(wallets[5], 1),
-            createAddConfirmerOp(wallets[6], 2),
-            createAddConfirmerOp(wallets[4], 2),
+            createAddConfirmerOp(wallets[5]!, 1),
+            createAddConfirmerOp(wallets[6]!, 2),
+            createAddConfirmerOp(wallets[4]!, 2),
           ];
 
           const newBlock = await createBlock(
             genesisBl,
             [],
-            [wallets[0], wallets[1], wallets[2]],
+            [wallets[0]!, wallets[1]!, wallets[2]!],
             ZeroId,
             confOps, 4,
           );
@@ -900,22 +900,22 @@ describe("FirmChain", function () {
           const { chain, wallets, genesisBl } = ch;
 
           const confOps = [
-            createAddConfirmerOp(wallets[5], 1),
-            createAddConfirmerOp(wallets[6], 2),
-            createAddConfirmerOp(wallets[1], 1),
+            createAddConfirmerOp(wallets[5]!, 1),
+            createAddConfirmerOp(wallets[6]!, 2),
+            createAddConfirmerOp(wallets[1]!, 1),
           ];
 
           await expect(createBlockAndFinalize(
             ch,
             [],
-            [wallets[0], wallets[1], wallets[2]],
+            [wallets[0]!, wallets[1]!, wallets[2]!],
             confOps, 4,
           )).to.be.rejectedWith("Cannot add a confirmer which already exists");
 
           const newChain = await createBlockAndFinalize(
             ch,
             [],
-            [wallets[0], wallets[1], wallets[2]],
+            [wallets[0]!, wallets[1]!, wallets[2]!],
             confOps, 4,
             true
           );
@@ -930,22 +930,22 @@ describe("FirmChain", function () {
           const { chain, wallets, genesisBl } = ch
 
           const confOps = [
-            createAddConfirmerOp(wallets[5], 1),
-            createAddConfirmerOp(wallets[6], 2),
-            createRemoveConfirmerOp(wallets[7], 2),
+            createAddConfirmerOp(wallets[5]!, 1),
+            createAddConfirmerOp(wallets[6]!, 2),
+            createRemoveConfirmerOp(wallets[7]!, 2),
           ];
 
           await expect(createBlockAndFinalize(
             ch,
             [],
-            [wallets[0], wallets[1], wallets[2]],
+            [wallets[0]!, wallets[1]!, wallets[2]!],
             confOps, 4,
           )).to.be.rejectedWith("Trying to remove a non existing confirmer");
 
           const newChain = await createBlockAndFinalize(
             ch,
             [],
-            [wallets[0], wallets[1], wallets[2]],
+            [wallets[0]!, wallets[1]!, wallets[2]!],
             confOps, 4,
             true
           );
@@ -962,7 +962,7 @@ describe("FirmChain", function () {
           const newBlock = await createBlock(
             genesisBl,
             [],
-            [wallets[0], wallets[1], wallets[2]],
+            [wallets[0]!, wallets[1]!, wallets[2]!],
             ZeroId, [], 4,
           );
 
@@ -984,7 +984,7 @@ describe("FirmChain", function () {
           const { confirmerValues, chain, wallets, genesisBl } = await loadFixture(deployChainFixt);
 
           const confOps = [
-            createRemoveConfirmerOp(confirmerValues[0]),
+            createRemoveConfirmerOp(confirmerValues[0]!),
           ];
 
           const newBlock = await createUnsignedBlock(
@@ -994,7 +994,7 @@ describe("FirmChain", function () {
           );
           newBlock.confirmerSetId = genesisBl.confirmerSetId;
           newBlock.header.blockBodyId = getBlockBodyId(newBlock);
-          const newSignedBlock = await signBlock(newBlock, [wallets[0], wallets[1], wallets[2]]);
+          const newSignedBlock = await signBlock(newBlock, [wallets[0]!, wallets[1]!, wallets[2]!]);
 
 
           await extConfirmByAll(chain, newSignedBlock.signers, newSignedBlock.header);
@@ -1011,11 +1011,11 @@ describe("FirmChain", function () {
           const { confirmerValues, chain, wallets, genesisBl } = await loadFixture(deployChainFixt);
 
           const confOps1 = [
-            createRemoveConfirmerOp(confirmerValues[0]),
-            createAddConfirmerOp(wallets[5], 1),
+            createRemoveConfirmerOp(confirmerValues[0]!),
+            createAddConfirmerOp(wallets[5]!, 1),
           ];
           const confOps2 = [
-            createAddConfirmerOp(wallets[5], 1),
+            createAddConfirmerOp(wallets[5]!, 1),
           ];
 
           const newBlock = await createUnsignedBlock(
@@ -1030,7 +1030,7 @@ describe("FirmChain", function () {
           );
           newBlock.confirmerSetId = newBlockAlt.confirmerSetId;
           newBlock.header.blockBodyId = await getBlockBodyId(newBlock);
-          const newSignedBlock = await signBlock(newBlock, [wallets[0], wallets[1], wallets[2]]);
+          const newSignedBlock = await signBlock(newBlock, [wallets[0]!, wallets[1]!, wallets[2]!]);
 
 
           await extConfirmByAll(chain, newSignedBlock.signers, newSignedBlock.header);
@@ -1049,8 +1049,8 @@ describe("FirmChain", function () {
       const { chain, confirmerValues } = await loadFixture(deployChainFixt);
 
       const ops = [
-        createRemoveConfirmerOp(confirmerValues[0]),
-        createRemoveConfirmerOp(confirmerValues[1]),
+        createRemoveConfirmerOp(confirmerValues[0]!),
+        createRemoveConfirmerOp(confirmerValues[1]!),
       ];
 
       await expect(chain.updateConfirmerSet(ops, 1)).to.be.reverted;
@@ -1059,7 +1059,7 @@ describe("FirmChain", function () {
       const { chain, wallets } = await loadFixture(deployChainFixt);
 
       const ops = [
-        createAddConfirmerOp(wallets[0], 3),
+        createAddConfirmerOp(wallets[0]!, 3),
       ];
 
       await expect(chain.updateConfirmerSet(ops, 3)).to.be.reverted;
@@ -1070,7 +1070,7 @@ describe("FirmChain", function () {
     it("Should finalize and execute a block without messages", async function() {
         const { chain, wallets, nextHeader, genesisBl } = await loadFixture(deployChainFixt);
 
-        const confWallets = [wallets[0], wallets[1], wallets[2]];
+        const confWallets = [wallets[0]!, wallets[1]!, wallets[2]!];
 
         const body: BlockBody = {
           confirmerSetId: genesisBl.confirmerSetId,
@@ -1096,7 +1096,7 @@ describe("FirmChain", function () {
       const { chain, wallets, genesisBl } = await loadFixture(deployChainFixt);
 
       const newBlock = await createBlock(
-        genesisBl, [], [wallets[0], wallets[2], wallets[3]]
+        genesisBl, [], [wallets[0]!, wallets[2]!, wallets[3]!]
       );
 
       await extConfirmByAll(chain, newBlock.signers, newBlock);
@@ -1112,15 +1112,15 @@ describe("FirmChain", function () {
           const { confirmerValues, chain, wallets, genesisBl } = await loadFixture(deployChainFixt);
 
           const confOps = [
-            createRemoveConfirmerOp(confirmerValues[0]),
-            createAddConfirmerOp(wallets[5], 1),
-            createAddConfirmerOp(wallets[6], 1),
+            createRemoveConfirmerOp(confirmerValues[0]!),
+            createAddConfirmerOp(wallets[5]!, 1),
+            createAddConfirmerOp(wallets[6]!, 1),
           ];
 
           const newBlock = await createBlock(
             genesisBl,
             [],
-            [wallets[0], wallets[1], wallets[2]],
+            [wallets[0]!, wallets[1]!, wallets[2]!],
             ZeroId, confOps, 3,
           );
           await extConfirmByAll(chain, newBlock.signers, newBlock.header);
@@ -1142,7 +1142,7 @@ describe("FirmChain", function () {
           const newBlock21 = await createBlock(
             newBlock,
             [],
-            [wallets[3], wallets[5], wallets[6]],
+            [wallets[3]!, wallets[5]!, wallets[6]!],
           );
           await extConfirmByAll(chain, newBlock21.signers, newBlock21.header);
           await expect(chain.finalizeAndExecute(newBlock21)).to.not.be.reverted;
@@ -1154,18 +1154,18 @@ describe("FirmChain", function () {
         const ch = await loadFixture(deployFirmChainNTT);
         const { ntt, genesisBl, wallets, signers } = ch;
 
-        expect(await ntt.balanceOf(signers[0].address)).to.equal(0);
+        expect(await ntt.balanceOf(signers[0]!.address)).to.equal(0);
 
         await createBlockAndExecute(
           ch,
-          [createMsg(ntt, 'mint', [signers[0].address, 2])],
-          [wallets[0], wallets[1], wallets[2]],
+          [createMsg(ntt, 'mint', [signers[0]!.address, 2])],
+          [wallets[0]!, wallets[1]!, wallets[2]!],
         );
 
-        expect(await ntt.balanceOf(signers[0].address)).to.equal(2);
+        expect(await ntt.balanceOf(signers[0]!.address)).to.equal(2);
 
         await expect(
-          ntt.connect(signers[0]).transfer(signers[1].address, 1)
+          ntt.connect(signers[0]!).transfer(signers[1]!.address, 1)
         ).to.be.revertedWith("Only minting allowed");
       });
     });
@@ -1177,7 +1177,7 @@ describe("FirmChain", function () {
 
         expect(await chain.isFinalized(getBlockId(nextHeader))).to.be.false;
 
-        const confWallets = [wallets[0], wallets[1]];
+        const confWallets = [wallets[0]!, wallets[1]!];
 
         const body: BlockBody = {
           confirmerSetId: genesisBl.confirmerSetId,

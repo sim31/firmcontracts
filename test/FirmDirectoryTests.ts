@@ -103,10 +103,10 @@ describe("FirmDirectory", function() {
       // Test if chain can issue other actions
       let newChain1 = await createBlockAndExecute(
         chain1,
-        [createMsg(token, 'mint', [wallets[0].address, 10])],
+        [createMsg(token, 'mint', [wallets[0]!.address, 10])],
         chain1.confirmers,
       );
-      expect(await token.balanceOf(wallets[0].address)).to.equal(10);
+      expect(await token.balanceOf(wallets[0]!.address)).to.equal(10);
 
       // Try setting dir of ord2Chain from chain1's call
       newChain1 = await createBlockAndFinalize(

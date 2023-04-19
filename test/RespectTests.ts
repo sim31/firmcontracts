@@ -68,10 +68,10 @@ export async function deployRespectFixt() {
   const wallets = await abi.createWallets(8);
 
   const respectChain = await deployRespect([
-    wallets[0],
-    wallets[1],
-    wallets[2],
-    wallets[3],
+    wallets[0]!,
+    wallets[1]!,
+    wallets[2]!,
+    wallets[3]!,
   ], 3, implLib, accSys, "SomeFractal", "SF");
 
   // Create some accounts
@@ -81,15 +81,15 @@ export async function deployRespectFixt() {
       metadataId: randomBytes32Hex(),
     },
     {
-      addr: wallets[1].address,
+      addr: wallets[1]!.address,
       metadataId: randomBytes32Hex(),
     },
     {
-      addr: wallets[2].address,
+      addr: wallets[2]!.address,
       metadataId: randomBytes32Hex(),
     },
     {
-      addr: wallets[3].address,
+      addr: wallets[3]!.address,
       metadataId: randomBytes32Hex(),
     }
   ];
@@ -150,27 +150,27 @@ describe("Respect", function() {
     it("Should not allow external actors to mint", async function() {
       const { chain, accounts } = await loadFixture(deployRespectFixt);
 
-      expect(await chain.balanceOfAccount(accounts[0].id)).to.be.equal(0);
+      expect(await chain.balanceOfAccount(accounts[0]!.id)).to.be.equal(0);
 
-      await expect(chain.mint(accounts[0].id, 10)).to.be.revertedWith("Can only be called by self");
+      await expect(chain.mint(accounts[0]!.id, 10)).to.be.revertedWith("Can only be called by self");
     });
 
     it("Should allow contract itself to mint", async function() {
       const { chain, accounts, latestChain, confirmers} = await loadFixture(deployRespectFixt);
 
-      expect(await chain.balanceOfAccount(accounts[0].id)).to.be.equal(0);
+      expect(await chain.balanceOfAccount(accounts[0]!.id)).to.be.equal(0);
       expect(await chain.totalSupply()).to.be.equal(0);
 
       const newChain = await createBlockAndFinalize(
         latestChain,
-        [createMsg(chain, 'mint', [accounts[0].id, 10])],
+        [createMsg(chain, 'mint', [accounts[0]!.id, 10])],
         confirmers,
       );      
 
       await expect(chain.execute(newChain.lastFinalized))
         .to.emit(chain, "ExternalCall");
       
-      expect(await chain.balanceOfAccount(accounts[0].id)).to.be.equal(10);
+      expect(await chain.balanceOfAccount(accounts[0]!.id)).to.be.equal(10);
       expect(await chain.totalSupply()).to.be.equal(10);
     });
 
@@ -192,21 +192,21 @@ describe("Respect", function() {
       async function() {
         const { chain, accounts, latestChain, confirmers} = await loadFixture(deployRespectFixt);
 
-        expect(await chain.balanceOfAccount(accounts[1].id)).to.be.equal(0);
-        expect(await chain.balanceOf(accounts[1].addr)).to.be.equal(0);
+        expect(await chain.balanceOfAccount(accounts[1]!.id)).to.be.equal(0);
+        expect(await chain.balanceOf(accounts[1]!.addr)).to.be.equal(0);
         expect(await chain.totalSupply()).to.be.equal(0);
 
         const newChain = await createBlockAndFinalize(
           latestChain,
-          [createMsg(chain, 'mint', [accounts[1].id, 5])],
+          [createMsg(chain, 'mint', [accounts[1]!.id, 5])],
           confirmers,
         );      
 
         await expect(chain.execute(newChain.lastFinalized))
           .to.emit(chain, "ExternalCall");
         
-        expect(await chain.balanceOfAccount(accounts[1].id)).to.be.equal(5);
-        expect(await chain.balanceOf(accounts[1].addr)).to.be.equal(5);
+        expect(await chain.balanceOfAccount(accounts[1]!.id)).to.be.equal(5);
+        expect(await chain.balanceOf(accounts[1]!.addr)).to.be.equal(5);
         expect(await chain.totalSupply()).to.be.equal(5);
       }
     );
@@ -216,9 +216,9 @@ describe("Respect", function() {
     it("Should not allow burning by external actors", async function() {
       const { chain, accounts } = await loadFixture(deployWithIssuedRespect);
 
-      expect(await chain.balanceOfAccount(accounts[0].id)).to.be.equal(1);
+      expect(await chain.balanceOfAccount(accounts[0]!.id)).to.be.equal(1);
 
-      await expect(chain.burn(accounts[0].id, 1))
+      await expect(chain.burn(accounts[0]!.id, 1))
         .to.be.revertedWith("Can only be called by self");
     });
 
@@ -226,19 +226,19 @@ describe("Respect", function() {
       const { chain, accounts, confirmers, latestChain } = await loadFixture(deployWithIssuedRespect);
 
       const totalSupply = await chain.totalSupply();
-      expect(await chain.balanceOfAccount(accounts[2].id)).to.be.equal(3);
-      expect(await chain.balanceOf(accounts[2].addr)).to.be.equal(3);
+      expect(await chain.balanceOfAccount(accounts[2]!.id)).to.be.equal(3);
+      expect(await chain.balanceOf(accounts[2]!.addr)).to.be.equal(3);
 
       const newChain = await createBlockAndFinalize(
         latestChain,
-        [createMsg(chain, 'burn', [accounts[2].id, 2])],
+        [createMsg(chain, 'burn', [accounts[2]!.id, 2])],
         confirmers,
       );
       await expect(chain.execute(newChain.lastFinalized))
         .to.emit(chain, "ExternalCall");
 
-      expect(await chain.balanceOfAccount(accounts[2].id)).to.be.equal(1);
-      expect(await chain.balanceOf(accounts[2].addr)).to.be.equal(1);
+      expect(await chain.balanceOfAccount(accounts[2]!.id)).to.be.equal(1);
+      expect(await chain.balanceOf(accounts[2]!.addr)).to.be.equal(1);
       expect(await chain.totalSupply()).to.be.equal(totalSupply.toNumber() - 2);
     });
 
@@ -246,19 +246,19 @@ describe("Respect", function() {
       const { chain, accounts, confirmers, latestChain } = await loadFixture(deployWithIssuedRespect);
 
       const totalSupply = await chain.totalSupply();
-      expect(await chain.balanceOfAccount(accounts[1].id)).to.be.equal(2);
-      expect(await chain.balanceOf(accounts[1].addr)).to.be.equal(2);
+      expect(await chain.balanceOfAccount(accounts[1]!.id)).to.be.equal(2);
+      expect(await chain.balanceOf(accounts[1]!.addr)).to.be.equal(2);
 
       const newChain = await createBlockAndFinalize(
         latestChain,
-        [createMsg(chain, 'burn', [accounts[1].id, 3])],
+        [createMsg(chain, 'burn', [accounts[1]!.id, 3])],
         confirmers,
       );
       await expect(chain.execute(newChain.lastFinalized))
         .to.emit(chain, "ExternalCallFail");
 
-      expect(await chain.balanceOfAccount(accounts[1].id)).to.be.equal(2);
-      expect(await chain.balanceOf(accounts[1].addr)).to.be.equal(2);
+      expect(await chain.balanceOfAccount(accounts[1]!.id)).to.be.equal(2);
+      expect(await chain.balanceOf(accounts[1]!.addr)).to.be.equal(2);
       expect(await chain.totalSupply()).to.be.equal(totalSupply.toNumber());
     });
 
@@ -280,18 +280,18 @@ describe("Respect", function() {
       const { chain, accounts, confirmers, latestChain } = await loadFixture(deployWithIssuedRespect);
 
       const totalSupply = await chain.totalSupply();
-      expect(await chain.balanceOfAccount(accounts[1].id)).to.be.equal(2);
-      expect(await chain.balanceOf(accounts[1].addr)).to.be.equal(2);
+      expect(await chain.balanceOfAccount(accounts[1]!.id)).to.be.equal(2);
+      expect(await chain.balanceOf(accounts[1]!.addr)).to.be.equal(2);
 
       const newChain = await createBlockAndExecute(
         latestChain,
-        [createMsg(chain, 'removeAccount', [accounts[1].id])],
+        [createMsg(chain, 'removeAccount', [accounts[1]!.id])],
         confirmers,
       );
 
       expect(await chain.totalSupply()).to.be.equal(totalSupply.toNumber() - 2);
-      expect(await chain.balanceOfAccount(accounts[1].id)).to.be.equal(0);
-      expect(await chain.balanceOf(accounts[1].addr)).to.be.equal(0);
+      expect(await chain.balanceOfAccount(accounts[1]!.id)).to.be.equal(0);
+      expect(await chain.balanceOf(accounts[1]!.addr)).to.be.equal(0);
     });
   });
 });

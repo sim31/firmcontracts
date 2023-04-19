@@ -76,7 +76,7 @@ describe("FirmChainAbi", function () {
     const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
 
     const conf: Confirmer = {
-      addr: signers[0].address,
+      addr: signers[0]!.address,
       weight: 1
     };
 
@@ -89,7 +89,7 @@ describe("FirmChainAbi", function () {
     const { abiLib, abiProxy, signers } = await loadFixture(deployAbiProxy);
 
     const conf: Confirmer = {
-      addr: signers[1].address,
+      addr: signers[1]!.address,
       weight: 2
     };
 
@@ -114,15 +114,15 @@ describe("FirmChainAbi", function () {
 
     const confs: Confirmer[] = [
       {
-        addr: signers[0].address,
+        addr: signers[0]!.address,
         weight: 2
       },
       {
-        addr: signers[1].address,
+        addr: signers[1]!.address,
         weight: 3
       },
       {
-        addr: signers[2].address,
+        addr: signers[2]!.address,
         weight: 1
       },
     ];
@@ -139,15 +139,15 @@ describe("FirmChainAbi", function () {
 
     const msgs: Message[] = [
       {
-        addr: signers[3].address,
+        addr: signers[3]!.address,
         cdata: utils.randomBytes(2)
       },
       {
-        addr: signers[4].address,
+        addr: signers[4]!.address,
         cdata: utils.randomBytes(4)
       },
       {
-        addr: signers[5].address,
+        addr: signers[5]!.address,
         cdata: utils.randomBytes(32)
       }
     ];
@@ -170,15 +170,15 @@ describe("FirmChainAbi", function () {
 
     const msgs: Message[] = [
       {
-        addr: signers[3].address,
+        addr: signers[3]!.address,
         cdata: utils.randomBytes(2)
       },
       {
-        addr: signers[4].address,
+        addr: signers[4]!.address,
         cdata: utils.randomBytes(4)
       },
       {
-        addr: signers[5].address,
+        addr: signers[5]!.address,
         cdata: utils.randomBytes(32)
       }
     ];
@@ -205,15 +205,15 @@ describe("FirmChainAbi", function () {
 
     const msgs: Message[] = [
       {
-        addr: signers[3].address,
+        addr: signers[3]!.address,
         cdata: utils.randomBytes(2)
       },
       {
-        addr: signers[4].address,
+        addr: signers[4]!.address,
         cdata: utils.randomBytes(4)
       },
       {
-        addr: signers[5].address,
+        addr: signers[5]!.address,
         cdata: utils.randomBytes(32)
       }
     ];
@@ -240,15 +240,15 @@ describe("FirmChainAbi", function () {
 
     const msgs: Message[] = [
       {
-        addr: signers[3].address,
+        addr: signers[3]!.address,
         cdata: utils.randomBytes(2)
       },
       {
-        addr: signers[4].address,
+        addr: signers[4]!.address,
         cdata: utils.randomBytes(4)
       },
       {
-        addr: signers[5].address,
+        addr: signers[5]!.address,
         cdata: utils.randomBytes(32)
       }
     ];
@@ -283,8 +283,8 @@ describe("FirmChainAbi", function () {
 
     const sig = randomSig();
 
-    expect(await abiProxy.verifyBlockSig(header, sig, signers[0].address)).to.be.false;
-    expect(await abiProxy.verifyBlockSig(header, sig, signers[1].address)).to.be.false;
+    expect(await abiProxy.verifyBlockSig(header, sig, signers[0]!.address)).to.be.false;
+    expect(await abiProxy.verifyBlockSig(header, sig, signers[1]!.address)).to.be.false;
   });
 
   it("Should verify that block signature is valid", async function() {
@@ -294,12 +294,12 @@ describe("FirmChainAbi", function () {
     const header = await randomBlockHeader();
     const digest = getBlockDigest(header);
 
-    const sig = wallets[0]._signingKey().signDigest(digest);
+    const sig = wallets[0]!._signingKey().signDigest(digest);
 
-    expect(await abiProxy.verifyBlockSig(header, sig, wallets[0].address)).to.be.true;
+    expect(await abiProxy.verifyBlockSig(header, sig, wallets[0]!.address)).to.be.true;
 
-    const sig2 = await sign(wallets[1], header);
-    expect(await abiProxy.verifyBlockSig(header, sig2, wallets[1].address)).to.be.true;
+    const sig2 = await sign(wallets[1]!, header);
+    expect(await abiProxy.verifyBlockSig(header, sig2, wallets[1]!.address)).to.be.true;
   });
 
 });

@@ -10,7 +10,9 @@ import { createAddConfirmerOp, createGenesisBlock } from "../interface/firmchain
 
 export async function deployDetFactory() {
   const signers = await ethers.getSigners();
-  const response = await signers[0].sendTransaction({
+  const signer = signers[0];
+  expect(signer).to.not.be.undefined;
+  const response = await signer!.sendTransaction({
     to: "0x" + detFactory.signerAddress,
     value: "0x" + detFactory.gasPrice * detFactory.gasLimit,
   });
@@ -30,7 +32,7 @@ export async function detDeployContract(bytecode: BytesLike) {
   const addr = await ethers.provider.call({ to: detFactory.address, data: bytecode });
 
   const signers = await ethers.getSigners();
-  const resp = await signers[0].sendTransaction({
+  const resp = await signers[0]!.sendTransaction({
     to: detFactory.address, data: bytecode
   });
   await resp.wait();
@@ -109,8 +111,8 @@ export async function detDeployFirmChain() {
   );
 
   const confOps: ConfirmerOpValue[] = [
-    createAddConfirmerOp(wallets[0], 1),
-    createAddConfirmerOp(wallets[1], 1),
+    createAddConfirmerOp(wallets[0]!, 1),
+    createAddConfirmerOp(wallets[1]!, 1),
   ]
   const genesisBlock = await createGenesisBlock([], ZeroId, confOps, 1);
 

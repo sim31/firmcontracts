@@ -75,10 +75,10 @@ export async function deployEFFixt() {
   const wallets = await abi.createWallets(12);
 
   const efChain = await deployEF([
-    wallets[0],
-    wallets[1],
-    wallets[2],
-    wallets[3],
+    wallets[0]!,
+    wallets[1]!,
+    wallets[2]!,
+    wallets[3]!,
   ], 3, implLib, accSys, "SomeFractal", "SF");
 
   // Create some accounts
@@ -88,27 +88,27 @@ export async function deployEFFixt() {
       metadataId: randomBytes32Hex(),
     },
     {
-      addr: wallets[1].address,
+      addr: wallets[1]!.address,
       metadataId: randomBytes32Hex(),
     },
     {
-      addr: wallets[2].address,
+      addr: wallets[2]!.address,
       metadataId: randomBytes32Hex(),
     },
     {
-      addr: wallets[3].address,
+      addr: wallets[3]!.address,
       metadataId: randomBytes32Hex(),
     },
     {
-      addr: wallets[4].address,
+      addr: wallets[4]!.address,
       metadataId: randomBytes32Hex(),
     },
     {
-      addr: wallets[5].address,
+      addr: wallets[5]!.address,
       metadataId: randomBytes32Hex(),
     },
     {
-      addr: wallets[6].address,
+      addr: wallets[6]!.address,
       metadataId: randomBytes32Hex(),
     },
     {
@@ -116,15 +116,15 @@ export async function deployEFFixt() {
       metadataId: randomBytes32Hex(),
     },
     {
-      addr: wallets[7].address,
+      addr: wallets[7]!.address,
       metadataId: randomBytes32Hex(),
     },
     {
-      addr: wallets[8].address,
+      addr: wallets[8]!.address,
       metadataId: randomBytes32Hex(),
     },
     {
-      addr: wallets[9].address,
+      addr: wallets[9]!.address,
       metadataId: randomBytes32Hex(),
     }
   ];
@@ -169,14 +169,14 @@ describe("EdenPlusFractal", async function() {
 
       const results = [
         {
-          delegate: accounts[0].id,
+          delegate: accounts[0]!.id,
           ranks: [
-            accounts[0].id,
-            accounts[1].id,
-            accounts[2].id,
-            accounts[3].id,
-            accounts[4].id,
-            accounts[5].id
+            accounts[0]!.id,
+            accounts[1]!.id,
+            accounts[2]!.id,
+            accounts[3]!.id,
+            accounts[4]!.id,
+            accounts[5]!.id
           ],
         }
       ];
@@ -201,23 +201,23 @@ describe("EdenPlusFractal", async function() {
         ///// Week 1
         let results = [
           {
-            delegate: accounts[0].id,
+            delegate: accounts[0]!.id,
             ranks: [
-              accounts[0].id,
-              accounts[1].id,
-              accounts[2].id,
-              accounts[3].id,
-              accounts[4].id,
-              accounts[5].id
+              accounts[0]!.id,
+              accounts[1]!.id,
+              accounts[2]!.id,
+              accounts[3]!.id,
+              accounts[4]!.id,
+              accounts[5]!.id
             ],
           },
           {
-            delegate: accounts[6].id,
+            delegate: accounts[6]!.id,
             ranks: [
-              accounts[6].id,
-              accounts[7].id,
-              accounts[8].id,
-              accounts[9].id,
+              accounts[6]!.id,
+              accounts[7]!.id,
+              accounts[8]!.id,
+              accounts[9]!.id,
               0,
               0
             ],
@@ -233,18 +233,18 @@ describe("EdenPlusFractal", async function() {
           .to.emit(chain, "ExternalCall");
         newChain.headBlock = newChain.lastFinalized;
 
-        expect(await chain.getDelegate(0, 0)).to.be.equal(accounts[0].id);
-        expect(await chain.getDelegate(0, 1)).to.be.equal(accounts[6].id);
+        expect(await chain.getDelegate(0, 0)).to.be.equal(accounts[0]!.id);
+        expect(await chain.getDelegate(0, 1)).to.be.equal(accounts[6]!.id);
 
         ///// Week 2
         results = [
           {
-            delegate: accounts[3].id,
+            delegate: accounts[3]!.id,
             ranks: [
-              accounts[0].id,
-              accounts[6].id,
-              accounts[7].id,
-              accounts[8].id,
+              accounts[0]!.id,
+              accounts[6]!.id,
+              accounts[7]!.id,
+              accounts[8]!.id,
               0,
               0,
             ],
@@ -258,17 +258,17 @@ describe("EdenPlusFractal", async function() {
         );
 
         // This week
-        expect(await chain.getDelegate(0, 0)).to.be.equal(accounts[3].id);
+        expect(await chain.getDelegate(0, 0)).to.be.equal(accounts[3]!.id);
         // Previous week
-        expect(await chain.getDelegate(1, 0)).to.be.equal(accounts[0].id);
-        expect(await chain.getDelegate(1, 1)).to.be.equal(accounts[6].id);
+        expect(await chain.getDelegate(1, 0)).to.be.equal(accounts[0]!.id);
+        expect(await chain.getDelegate(1, 1)).to.be.equal(accounts[6]!.id);
 
         ////// Week 3
         results = [
           {
-            delegate: accounts[2].id,
+            delegate: accounts[2]!.id,
             ranks: [
-              accounts[5].id,
+              accounts[5]!.id,
               0,
               0,
               0,
@@ -277,9 +277,9 @@ describe("EdenPlusFractal", async function() {
             ],
           },
           {
-            delegate: accounts[7].id,
+            delegate: accounts[7]!.id,
             ranks: [
-              accounts[6].id,
+              accounts[6]!.id,
               0,
               0,
               0,
@@ -296,20 +296,20 @@ describe("EdenPlusFractal", async function() {
         );
 
         // This week
-        expect(await chain.getDelegate(0, 0)).to.be.equal(accounts[2].id);
-        expect(await chain.getDelegate(0, 1)).to.be.equal(accounts[7].id);
+        expect(await chain.getDelegate(0, 0)).to.be.equal(accounts[2]!.id);
+        expect(await chain.getDelegate(0, 1)).to.be.equal(accounts[7]!.id);
         // Week 2
-        expect(await chain.getDelegate(1, 0)).to.be.equal(accounts[3].id);
+        expect(await chain.getDelegate(1, 0)).to.be.equal(accounts[3]!.id);
         // Week 1
-        expect(await chain.getDelegate(2, 0)).to.be.equal(accounts[0].id);
-        expect(await chain.getDelegate(2, 1)).to.be.equal(accounts[6].id);
+        expect(await chain.getDelegate(2, 0)).to.be.equal(accounts[0]!.id);
+        expect(await chain.getDelegate(2, 1)).to.be.equal(accounts[6]!.id);
 
         ///// Week 4
         results = [
           {
-            delegate: accounts[9].id,
+            delegate: accounts[9]!.id,
             ranks: [
-              accounts[5].id,
+              accounts[5]!.id,
               0,
               0,
               0,
@@ -318,9 +318,9 @@ describe("EdenPlusFractal", async function() {
             ],
           },
           {
-            delegate: accounts[8].id,
+            delegate: accounts[8]!.id,
             ranks: [
-              accounts[6].id,
+              accounts[6]!.id,
               0,
               0,
               0,
@@ -337,23 +337,23 @@ describe("EdenPlusFractal", async function() {
         );
 
         // Current week
-        expect(await chain.getDelegate(0, 0)).to.be.equal(accounts[9].id);
-        expect(await chain.getDelegate(0, 1)).to.be.equal(accounts[8].id);
+        expect(await chain.getDelegate(0, 0)).to.be.equal(accounts[9]!.id);
+        expect(await chain.getDelegate(0, 1)).to.be.equal(accounts[8]!.id);
         // Week 3
-        expect(await chain.getDelegate(1, 0)).to.be.equal(accounts[2].id);
-        expect(await chain.getDelegate(1, 1)).to.be.equal(accounts[7].id);
+        expect(await chain.getDelegate(1, 0)).to.be.equal(accounts[2]!.id);
+        expect(await chain.getDelegate(1, 1)).to.be.equal(accounts[7]!.id);
         // Week 2
-        expect(await chain.getDelegate(2, 0)).to.be.equal(accounts[3].id);
+        expect(await chain.getDelegate(2, 0)).to.be.equal(accounts[3]!.id);
         // Week 1
-        expect(await chain.getDelegate(3, 0)).to.be.equal(accounts[0].id);
-        expect(await chain.getDelegate(3, 1)).to.be.equal(accounts[6].id);
+        expect(await chain.getDelegate(3, 0)).to.be.equal(accounts[0]!.id);
+        expect(await chain.getDelegate(3, 1)).to.be.equal(accounts[6]!.id);
 
         //// Week 5
         results = [
           {
-            delegate: accounts[0].id,
+            delegate: accounts[0]!.id,
             ranks: [
-              accounts[5].id,
+              accounts[5]!.id,
               0,
               0,
               0,
@@ -362,9 +362,9 @@ describe("EdenPlusFractal", async function() {
             ],
           },
           {
-            delegate: accounts[1].id,
+            delegate: accounts[1]!.id,
             ranks: [
-              accounts[6].id,
+              accounts[6]!.id,
               0,
               0,
               0,
@@ -381,16 +381,16 @@ describe("EdenPlusFractal", async function() {
         );
 
         // Current week
-        expect(await chain.getDelegate(0, 0)).to.be.equal(accounts[0].id);
-        expect(await chain.getDelegate(0, 1)).to.be.equal(accounts[1].id);
+        expect(await chain.getDelegate(0, 0)).to.be.equal(accounts[0]!.id);
+        expect(await chain.getDelegate(0, 1)).to.be.equal(accounts[1]!.id);
         // Week 4
-        expect(await chain.getDelegate(1, 0)).to.be.equal(accounts[9].id);
-        expect(await chain.getDelegate(1, 1)).to.be.equal(accounts[8].id);
+        expect(await chain.getDelegate(1, 0)).to.be.equal(accounts[9]!.id);
+        expect(await chain.getDelegate(1, 1)).to.be.equal(accounts[8]!.id);
         // Week 3
-        expect(await chain.getDelegate(2, 0)).to.be.equal(accounts[2].id);
-        expect(await chain.getDelegate(2, 1)).to.be.equal(accounts[7].id);
+        expect(await chain.getDelegate(2, 0)).to.be.equal(accounts[2]!.id);
+        expect(await chain.getDelegate(2, 1)).to.be.equal(accounts[7]!.id);
         // Week 2
-        expect(await chain.getDelegate(3, 0)).to.be.equal(accounts[3].id);
+        expect(await chain.getDelegate(3, 0)).to.be.equal(accounts[3]!.id);
       });
     });
 
@@ -405,24 +405,24 @@ describe("EdenPlusFractal", async function() {
 
         let results = [
           {
-            delegate: accounts[0].id,
+            delegate: accounts[0]!.id,
             ranks: [
-              accounts[0].id,
-              accounts[1].id,
-              accounts[2].id,
-              accounts[3].id,
-              accounts[4].id,
-              accounts[5].id
+              accounts[0]!.id,
+              accounts[1]!.id,
+              accounts[2]!.id,
+              accounts[3]!.id,
+              accounts[4]!.id,
+              accounts[5]!.id
             ],
           },
           {
-            delegate: accounts[6].id,
+            delegate: accounts[6]!.id,
             ranks: [
-              accounts[6].id,
-              accounts[7].id,
-              accounts[8].id,
-              accounts[9].id,
-              accounts[10].id,
+              accounts[6]!.id,
+              accounts[7]!.id,
+              accounts[8]!.id,
+              accounts[9]!.id,
+              accounts[10]!.id,
               0,
             ],
           },
@@ -438,18 +438,18 @@ describe("EdenPlusFractal", async function() {
         newChain.headBlock = newChain.lastFinalized;
 
         // Room 1
-        expect(await chain.balanceOfAccount(accounts[0].id)).to.be.equal(2);
-        expect(await chain.balanceOfAccount(accounts[1].id)).to.be.equal(3);
-        expect(await chain.balanceOfAccount(accounts[2].id)).to.be.equal(5);
-        expect(await chain.balanceOfAccount(accounts[3].id)).to.be.equal(8);
-        expect(await chain.balanceOfAccount(accounts[4].id)).to.be.equal(13);
-        expect(await chain.balanceOfAccount(accounts[5].id)).to.be.equal(21);
+        expect(await chain.balanceOfAccount(accounts[0]!.id)).to.be.equal(2);
+        expect(await chain.balanceOfAccount(accounts[1]!.id)).to.be.equal(3);
+        expect(await chain.balanceOfAccount(accounts[2]!.id)).to.be.equal(5);
+        expect(await chain.balanceOfAccount(accounts[3]!.id)).to.be.equal(8);
+        expect(await chain.balanceOfAccount(accounts[4]!.id)).to.be.equal(13);
+        expect(await chain.balanceOfAccount(accounts[5]!.id)).to.be.equal(21);
         // Room 2
-        expect(await chain.balanceOfAccount(accounts[6].id)).to.be.equal(2);
-        expect(await chain.balanceOfAccount(accounts[7].id)).to.be.equal(3);
-        expect(await chain.balanceOfAccount(accounts[8].id)).to.be.equal(5);
-        expect(await chain.balanceOfAccount(accounts[9].id)).to.be.equal(8);
-        expect(await chain.balanceOfAccount(accounts[10].id)).to.be.equal(13);
+        expect(await chain.balanceOfAccount(accounts[6]!.id)).to.be.equal(2);
+        expect(await chain.balanceOfAccount(accounts[7]!.id)).to.be.equal(3);
+        expect(await chain.balanceOfAccount(accounts[8]!.id)).to.be.equal(5);
+        expect(await chain.balanceOfAccount(accounts[9]!.id)).to.be.equal(8);
+        expect(await chain.balanceOfAccount(accounts[10]!.id)).to.be.equal(13);
       });
     });
   })
