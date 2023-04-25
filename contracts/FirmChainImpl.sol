@@ -197,7 +197,8 @@ library FirmChainImpl {
         // Get id of the block this block extends and check if that block
         //   has not yet been extended with some other *finalized* block.
         //   If so, mark sender as faulty.
-        if (isExtendedBy(chain, prevId, address(this))) {
+        bytes32 altFinalBl = getExtendingBlock(chain, prevId, address(this));
+        if (altFinalBl != 0 && altFinalBl != bId) {
             _confirmerFault(chain, confirmerAddr, prevId, bId);
         }
 
@@ -444,6 +445,13 @@ library FirmChainImpl {
 
     function getHead(FirmChain storage chain) public view returns (bytes32) {
         return chain._head;
+    }
+
+    function getConfirmerStatus(
+        FirmChain storage chain,
+        address confirmer
+    ) public view returns (ConfirmerStatus) {
+        return chain._confirmerStatus[confirmer];
     }
 
     function isContract(address _addr) private view returns (bool){

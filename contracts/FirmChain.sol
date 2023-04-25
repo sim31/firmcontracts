@@ -70,6 +70,10 @@ contract FirmChain is IFirmChain, SelfCalled {
         return _impl.getHead();
     }
 
+    function getConfirmerStatus(address confirmer) external view returns (ConfirmerStatus) {
+        return _impl.getConfirmerStatus(confirmer);
+    }
+
     function isConfirmedBy(bytes32 blockId, address confirmer) public view returns (bool) {
         return _impl.isConfirmedBy(blockId, confirmer);
     }

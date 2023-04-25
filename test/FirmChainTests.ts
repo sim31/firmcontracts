@@ -4,7 +4,7 @@ import { ethers } from "hardhat";
 import { utils, Wallet, ContractTransaction } from "ethers";
 
 import * as abi from "./FirmChainAbiTests";
-import { Block, BlockHeader, Message, ConfirmerOp, ExtendedBlock, isBlock, ZeroId, ConfirmerOpValue, ConfirmerValue, AddressStr, Unpromised, isWallet, isWallets, ZeroAddr, BlockBody, } from "../interface/types";
+import { Block, BlockHeader, Message, ConfirmerOp, ExtendedBlock, isBlock, ZeroId, ConfirmerOpValue, ConfirmerValue, AddressStr, Unpromised, isWallet, isWallets, ZeroAddr, BlockBody, ConfirmerStatus, } from "../interface/types";
 import { batchSign, decodeConfirmer, getBlockBodyId, getBlockId, getConfirmerSetId, normalizeHexStr, randomBytes32, randomBytes32Hex, sign } from "../interface/abi";
 import {
   createAddConfirmerOp, createAddConfirmerOps, createRemoveConfirmerOp,
@@ -385,6 +385,64 @@ describe("FirmChain", function () {
       await checkConfirmations(chain, confWallets, header);
       expect(await chain.isConfirmedBy(getBlockId(header), wallets[4]!.address)).to.be.false;
     });
+
+    it("Should allow confirming blocks after they're finalized", async function() {
+      const { chain, wallets, nextHeader } = await loadFixture(deployChainFixt);
+
+      const confWallets = [wallets[0]!, wallets[1]!, wallets[2]!];
+      const header = {
+        ...nextHeader,
+        blockBodyId: randomBytes32(),
+      }
+
+      await extConfirmByAll(chain, confWallets, header);
+
+      await expect(chain.finalize(header)).to.not.be.reverted;
+
+      const sig = await sign(wallets[3]!, header);
+      await expect(chain.extConfirm(header, wallets[3]!.address, sig))
+        .to.not.be.reverted;
+
+      expect(await chain.isConfirmedBy(getBlockId(header), wallets[3]!.address)).to.be.true;
+      expect(await chain.getConfirmerStatus(wallets[3]!.address))
+        .to.not.be.equal(ConfirmerStatus.Faulty);
+    });
+
+    it("should allow confirming old blocks in the chain", async function() {
+      const chain = await loadFixture(deployChainFixt);
+
+      // Execute block confirmed by 3/4 confirmers
+      const newChain = await createBlockAndExecute(
+        chain,
+        [],
+        chain.confirmers.slice(0, 3),
+      );
+
+      // Confirm and execute next 2 blocks
+      const newChain2 = await createBlockAndExecute(
+        newChain,
+        [],
+        chain.confirmers,
+      );
+      const newChain3 = await createBlockAndExecute(
+        newChain2,
+        [],
+        chain.confirmers,
+      );
+
+      const header = newChain.headBlock.header;
+      const blockId = getBlockId(header);
+      const confirmer = chain.wallets[3]!.address;
+      expect(await chain.chain.isConfirmedBy(blockId, confirmer)).to.be.false;
+      // Confirm the first block with the last confirmer
+      const sig = await sign(chain.wallets[3]!, header);
+      await expect(
+        chain.chain.extConfirm(newChain.headBlock.header, confirmer, sig)
+      ).to.not.be.reverted;
+      expect(await chain.chain.isConfirmedBy(blockId, confirmer)).to.be.true;
+      expect(await chain.chain.getConfirmerStatus(confirmer))
+        .to.not.be.equal(ConfirmerStatus.Faulty);
+    });
   });
 
   describe("confirm", async function() {
@@ -558,6 +616,60 @@ describe("FirmChain", function () {
         .to.emit(newChain2.chain, "ExternalCall")
         .and
         .to.emit(chain, "ByzantineFault");
+    });
+
+    it("Should allow confirming blocks after they're finalized", async function() {
+      const { ord2Chain, chain3 } = await loadFixture(deploy2ndOrderChain);
+
+      const newChain1 = await createBlockAndFinalize(
+        ord2Chain, [], ord2Chain.confirmers.slice(0, 2),
+      );
+
+      const header = newChain1.lastFinalized.header;
+      const bId = getBlockId(header);
+      expect(await ord2Chain.chain.isConfirmedBy(bId, chain3.chain.address));
+
+      await createBlockAndExecute(
+        chain3,
+        [createMsg(ord2Chain.chain, 'confirm', [header])],
+        chain3.confirmers
+      );
+
+      expect(await ord2Chain.chain.isConfirmedBy(bId, chain3.chain.address)).to.be.true;
+      expect(await ord2Chain.chain.getConfirmerStatus(chain3.chain.address))
+        .to.not.be.equal(ConfirmerStatus.Faulty);
+    });
+
+    it("should allow confirming old blocks in the chain", async function() {
+      const { ord2Chain, chain3 } = await loadFixture(deploy2ndOrderChain);
+
+      // Execute block confirmed by 3/4 confirmers
+      const newChain1 = await createBlockAndExecute(
+        ord2Chain,
+        [],
+        ord2Chain.confirmers.slice(0, 2),
+      );
+
+      // Confirm and execute next block
+      const newChain2 = await createBlockAndExecute(
+        newChain1,
+        [],
+        newChain1.confirmers.slice(0, 2),
+      );
+
+      const header = newChain1.headBlock.header;
+      const blockId = getBlockId(header);
+      const confirmerAddr = chain3.chain.address
+      expect(await newChain2.chain.isConfirmedBy(blockId, confirmerAddr)).to.be.false;
+
+      await createBlockAndExecute(
+        chain3,
+        [createMsg(newChain2.chain, 'confirm', [header])],
+        chain3.confirmers,
+      );
+      expect(await newChain2.chain.isConfirmedBy(blockId, confirmerAddr)).to.be.true;
+      expect(await newChain2.chain.getConfirmerStatus(confirmerAddr))
+        .to.not.be.equal(ConfirmerStatus.Faulty);
     });
 
   });

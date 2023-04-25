@@ -80,6 +80,10 @@ export const ConfirmerOpId = {
   Remove: 1
 } as const;
 
+export const ConfirmerStatus = {
+  Faulty: 3,
+} as const;
+
 export function isBlock(bl: BlockHeader | Block | ExtendedBlock): bl is Block {
   return 'header' in bl;
 }
