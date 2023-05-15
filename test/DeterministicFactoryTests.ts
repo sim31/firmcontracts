@@ -7,98 +7,47 @@ import { ConfirmerOpValue, ZeroId } from "../interface/types";
 import { getBlockId, normalizeHexStr } from "../interface/abi";
 import { createWallets, randomBlockHeader } from "./FirmChainAbiTests";
 import { createAddConfirmerOp, createGenesisBlock } from "../interface/firmchain";
+import { FirmContractDeployer } from "../interface/deployer";
 
-export async function deployDetFactory() {
-  const signers = await ethers.getSigners();
-  const signer = signers[0];
-  expect(signer).to.not.be.undefined;
-  const response = await signer!.sendTransaction({
-    to: "0x" + detFactory.signerAddress,
-    value: "0x" + detFactory.gasPrice * detFactory.gasLimit,
-  });
-  const receipt = await response.wait();
-  // console.log("receipt: ", receipt);
-  // console.log("balance: ", await ethers.provider.getBalance("0x" + detFactory.signerAddress));
-  
-  const tx = await ethers.provider.sendTransaction(
-    "0x" + detFactory.transaction
-  );
-  // console.log("ok");
-  await tx.wait();
-  return detFactory;
-}
-
-export async function detDeployContract(bytecode: BytesLike) {
-  const addr = await ethers.provider.call({ to: detFactory.address, data: bytecode });
-
-  const signers = await ethers.getSigners();
-  const resp = await signers[0]!.sendTransaction({
-    to: detFactory.address, data: bytecode
-  });
-  await resp.wait();
-
-  expect(await ethers.provider.getCode(addr)).to.not.equal('0x');
-
-  const initCodeHash = ethers.utils.keccak256(bytecode ?? '0x00');
-  const expAddr = ethers.utils.getCreate2Address(detFactory.address, ZeroId, initCodeHash);
-
-  expect(normalizeHexStr(addr)).to.equal(normalizeHexStr(expAddr));
-
-  return addr;
-}
+const deployer = new FirmContractDeployer(ethers.provider);
 
 export async function detDeployAbi() {
-  const detFactory = await loadFixture(deployDetFactory);
+  const detFactory = await loadFixture(deployer.init.bind(deployer));
 
-  const factory = await ethers.getContractFactory("FirmChainAbi");
-  const bytecode = await factory.getDeployTransaction().data;
+  return (await deployer.deployAbi());
 
-  return await detDeployContract(bytecode ?? "0x00");
 }
 
 export async function detDeployAbiProxy() {
-  const abiAddr = await loadFixture(detDeployAbi);
+  const abi = await loadFixture(detDeployAbi);
   
   const factory = await ethers.getContractFactory(
     "FirmChainAbiProxy",
     {
       libraries: {
-        FirmChainAbi: abiAddr,
+        FirmChainAbi: abi.address,
       },
     }
   );
   const bytecode = await factory.getDeployTransaction().data ?? "0x00";
 
-  const proxyAddr = await detDeployContract(bytecode);
+  const proxyAddr = await deployer.detDeployContract(bytecode, 'abiProxy');
 
   const abiProxy = factory.attach(proxyAddr);
 
-  return { abiProxy, abiAddr };
+  return { abiProxy, abi };
 }
 
 export async function detDeployFirmChainImpl() {
-  const abiAddr = await loadFixture(detDeployAbi);
+  const abi = await loadFixture(detDeployAbi);
 
-  const factory = await ethers.getContractFactory(
-    "FirmChainImpl",
-    {
-      libraries: {
-        FirmChainAbi: abiAddr,
-      },
-    },
-  );
+  const implLib = await deployer.deployFirmChainImpl(abi);
 
-  const bytecode = await factory.getDeployTransaction().data ?? "0x00";
-
-  const addr = await detDeployContract(bytecode);
-
-  const implLib = factory.attach(addr);
-
-  return { implLib, abiAddr };
+  return { implLib, abi };
 }
 
 export async function detDeployFirmChain() {
-  const { implLib, abiAddr } = await loadFixture(detDeployFirmChainImpl);
+  const { implLib, abi } = await loadFixture(detDeployFirmChainImpl);
   const wallets = await createWallets();
 
   const factory = await ethers.getContractFactory(
@@ -118,11 +67,11 @@ export async function detDeployFirmChain() {
 
   const bytecode = factory.getDeployTransaction(genesisBlock, confOps, 1).data ?? "0x00";
 
-  const addr = await detDeployContract(bytecode);
+  const addr = await deployer.detDeployContract(bytecode, 'firmchain');
 
   const chain = factory.attach(addr);
 
-  return { abiAddr, implLib, chain };
+  return { abi, implLib, chain };
 }
 
 describe("DeterministicFactory", function() {

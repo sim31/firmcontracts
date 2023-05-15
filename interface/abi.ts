@@ -65,6 +65,10 @@ export function randomBytes32Hex(): string {
   return utils.hexlify(randomBytes32());
 }
 
+export function randomAddressHex(): string {
+  return utils.hexlify(utils.randomBytes(21));
+}
+
 export function randomBytesHex(n: number): string {
   return utils.hexlify(utils.randomBytes(n));
 }

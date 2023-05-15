@@ -10,8 +10,16 @@ import { ConfirmerOpValue, ExtendedBlock, ZeroId } from "../interface/types";
 import { createAddConfirmerOp, createBlockTemplate, createGenesisBlock, createMsg } from "../interface/firmchain";
 import { Overwrite } from "utility-types";
 import { randomBytes32Hex } from "../interface/abi";
+import { FirmContractDeployer } from "../interface/deployer";
 
 export type FirmDirectoryInfo = Overwrite<ChainInfo, { chain: FirmDirectory }>;
+
+const deployer = new FirmContractDeployer(ethers.provider);
+
+async function deployDeps() {
+  await deployer.init();
+  await deployer.deployFilesystem();
+}
 
 export async function deployFirmDirectory(
   confirmers: Wallet[] | ChainInfo[],
@@ -54,6 +62,8 @@ export async function deployFirmDirectory(
 
 async function deploy2ndOrderFirmDir() {
   const { implLib, abiLib, signers } = await loadFixture(deployImplLib);
+  await deployDeps();
+
   const wallets = await abi.createWallets(16);
 
   const chain1 = await deployChain(wallets.slice(0, 4), 3, implLib);
@@ -86,7 +96,7 @@ describe("FirmDirectory", function() {
     it("Should have directoryId as 0 after deployment", async function() {
       const chains = await loadFixture(deploy2ndOrderFirmDir);
       
-      expect(await chains.ord2Chain.chain.directoryId()).to.equal(ZeroId);
+      expect(await chains.ord2Chain.chain.getDir()).to.equal(ZeroId);
     });
 
     it("Should not allow setting dir for external accounts", async function() {
@@ -117,7 +127,7 @@ describe("FirmDirectory", function() {
       await expect(newChain1.chain.execute(newChain1.lastFinalized)).to.emit(
         chain1.chain, 'ExternalCallFail'
       );
-      expect(await ord2Chain.chain.directoryId()).to.equal(ZeroId);
+      expect(await ord2Chain.chain.getDir()).to.equal(ZeroId);
     });
 
     it("Should allow FirmChain to set its own directory", async function() {
@@ -131,7 +141,7 @@ describe("FirmDirectory", function() {
       );
       await expect(newOrd2Chain.chain.execute(newOrd2Chain.lastFinalized)).to.emit(newOrd2Chain.chain, 'ExternalCall');
 
-      expect(await ord2Chain.chain.directoryId()).to.equal(dirId);
+      expect(await ord2Chain.chain.getDir()).to.equal(dirId);
     });
 
   })
