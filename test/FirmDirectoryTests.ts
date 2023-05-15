@@ -16,9 +16,9 @@ export type FirmDirectoryInfo = Overwrite<ChainInfo, { chain: FirmDirectory }>;
 
 const deployer = new FirmContractDeployer(ethers.provider);
 
-async function deployDeps() {
+async function deployFs() {
   await deployer.init();
-  await deployer.deployFilesystem();
+  return await deployer.deployFilesystem();
 }
 
 export async function deployFirmDirectory(
@@ -62,7 +62,7 @@ export async function deployFirmDirectory(
 
 async function deploy2ndOrderFirmDir() {
   const { implLib, abiLib, signers } = await loadFixture(deployImplLib);
-  await deployDeps();
+  const fsContract = await deployFs();
 
   const wallets = await abi.createWallets(16);
 
@@ -81,6 +81,7 @@ async function deploy2ndOrderFirmDir() {
     ord2Chain,
     abiLib, signers,
     wallets,
+    fsContract
   };
 }
 
@@ -142,6 +143,21 @@ describe("FirmDirectory", function() {
       await expect(newOrd2Chain.chain.execute(newOrd2Chain.lastFinalized)).to.emit(newOrd2Chain.chain, 'ExternalCall');
 
       expect(await ord2Chain.chain.getDir()).to.equal(dirId);
+    });
+
+    it("Should emit SetRoot event when directory is set", async function() {
+      const { ord2Chain, fsContract } = await loadFixture(deploy2ndOrderFirmDir);
+
+      const dirId = randomBytes32Hex();
+      let newOrd2Chain = await createBlockAndFinalize(
+        ord2Chain,
+        [createMsg(ord2Chain.chain, 'setDir', [dirId])],
+        ord2Chain.confirmers,
+      );
+      await expect(newOrd2Chain.chain.execute(newOrd2Chain.lastFinalized))
+        .to.emit(newOrd2Chain.chain, 'ExternalCall')
+        .and.to.emit(fsContract, 'SetRoot')
+        .withArgs(newOrd2Chain.chain.address, dirId);
     });
 
   })
