@@ -159,6 +159,5 @@ describe("FirmDirectory", function() {
         .and.to.emit(fsContract, 'SetRoot')
         .withArgs(newOrd2Chain.chain.address, dirId);
     });
-
   })
 });
