@@ -25,7 +25,7 @@ export class Deployer {
       this._factoryDeployed = true;
       console.log("Factory exists: ", addr);
     } else {
-      await this.deployDetFactory();
+      await this._deployDetFactory();
     }
   }
 
@@ -45,9 +45,19 @@ export class Deployer {
     return '0x' + factoryInfo.address;
   }
 
+  getFactoryDeploymentTx() {
+    return factoryInfo;
+  }
+
   async contractExists(address: AddressStr): Promise<boolean> {
     const code = await this._provider.getCode(address); 
     return code !== '0x';
+  }
+
+  getDetAddress(bytecode: BytesLike) {
+    const initCodeHash = ethers.utils.keccak256(bytecode ?? '0x00');
+    const expAddr = normalizeHexStr(ethers.utils.getCreate2Address(factoryInfo.address, ZeroId, initCodeHash));
+    return expAddr;
   }
 
   async detDeployContract(bytecode: BytesLike, name: string): Promise<AddressStr> {
@@ -55,8 +65,7 @@ export class Deployer {
       throw new Error('Factory has to be deployed first');
     }
 
-    const initCodeHash = ethers.utils.keccak256(bytecode ?? '0x00');
-    const expAddr = normalizeHexStr(ethers.utils.getCreate2Address(factoryInfo.address, ZeroId, initCodeHash));
+    const expAddr = this.getDetAddress(bytecode);
 
     if (await this.contractExists(expAddr)) {
       console.log(`Contract ${name} exists: ${expAddr}`);
@@ -85,7 +94,7 @@ export class Deployer {
     }
   }
 
-  private async deployDetFactory() {
+  private async _deployDetFactory() {
     const response = await this._signer.sendTransaction({
       to: "0x" + factoryInfo.signerAddress,
       value: "0x" + factoryInfo.gasPrice * factoryInfo.gasLimit,
