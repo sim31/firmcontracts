@@ -24,8 +24,9 @@ contract EdenPlusFractal is Respect, Directory {
         Account[] memory confirmers,
         uint8 threshold,
         string memory name_,
-        string memory symbol_
-    ) Respect(genesisBl, accountsToConfirmerOps(confirmers), threshold, name_, symbol_) {
+        string memory symbol_,
+        bytes32 abiCID
+    ) Respect(genesisBl, accountsToConfirmerOps(confirmers), threshold, name_, symbol_) Directory(abiCID) {
         for (uint i = 0; i < confirmers.length; i++) {
             _accounts.createAccount(confirmers[i]);
         }

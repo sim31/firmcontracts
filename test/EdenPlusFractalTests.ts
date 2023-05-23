@@ -6,12 +6,15 @@ import { deployImplLib, deployChain, createBlockAndExecute, createBlockAndFinali
 import type { ChainInfo } from "./FirmChainTests";
 import * as abi from "./FirmChainAbiTests";
 import { Wallet, ContractTransaction } from "ethers";
-import { Respect, EdenPlusFractal, FirmChainImpl, AccountSystemImpl } from "../typechain-types";
+import { Respect, EdenPlusFractal, FirmChainImpl, AccountSystemImpl, Filesystem } from "../typechain-types";
 import { Account, ConfirmerOpValue, ExtendedBlock, ZeroAddr, ZeroId } from "../interface/types";
 import { createAddConfirmerOp, createBlock, createBlockTemplate, createGenesisBlock, createMsg } from "../interface/firmchain";
 import { Overwrite } from "utility-types";
 import { randomBytes32Hex } from "../interface/abi";
 import { deployAccountSysImpl, getCreatedAccId } from "./FirmAccountSystemTests";
+import { FirmContractDeployer } from "../interface/deployer";
+
+const deployer = new FirmContractDeployer(ethers.provider);
 
 chai.use(chaiSubset);
 
@@ -22,6 +25,7 @@ export async function deployEF(
   threshold: number,
   implLib: FirmChainImpl,
   accSysImpl: AccountSystemImpl,
+  fsContract: Filesystem,
   name: string,
   symbol: string,
 ): Promise<EFInfo> {
@@ -47,8 +51,10 @@ export async function deployEF(
   })
   const genesisBlock = await createGenesisBlock([], ZeroId, confOps, threshold);
 
-  const deployCall = factory.deploy(genesisBlock, confAccounts, threshold, name, symbol);
-  await expect(deployCall).to.not.be.reverted;
+  const abiCID = randomBytes32Hex();
+  const deployCall = factory.deploy(genesisBlock, confAccounts, threshold, name, symbol, abiCID);
+  await expect(deployCall).to.not.be.reverted
+
   const chain = await deployCall;
   const genesisBl: ExtendedBlock = {
     ...genesisBlock,
@@ -69,17 +75,23 @@ export async function deployEF(
   };
 }
 
+async function deployFs() {
+  await deployer.init();
+  return await deployer.deployFilesystem();
+}
+
 export async function deployEFFixt() {
   const { implLib, abiLib, signers } = await loadFixture(deployImplLib);
   const accSys = await deployAccountSysImpl();
   const wallets = await abi.createWallets(12);
+  const fsContract = await deployFs();
 
   const efChain = await deployEF([
     wallets[0]!,
     wallets[1]!,
     wallets[2]!,
     wallets[3]!,
-  ], 3, implLib, accSys, "SomeFractal", "SF");
+  ], 3, implLib, accSys, fsContract, "SomeFractal", "SF");
 
   // Create some accounts
   const accounts = [

@@ -8,6 +8,7 @@ contract FirmDirectory is FirmChain, Directory {
     constructor(
         Block memory genesisBl,
         ConfirmerOp[] memory confirmerOps,
-        uint8 threshold
-    ) FirmChain(genesisBl, confirmerOps, threshold) {}
+        uint8 threshold,
+        bytes32 abiCID
+    ) FirmChain(genesisBl, confirmerOps, threshold) Directory(abiCID) {}
 }

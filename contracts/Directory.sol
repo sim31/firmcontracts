@@ -3,9 +3,16 @@ pragma solidity ^0.8.8;
 
 import "./SelfCalled.sol";
 import "./Filesystem.sol";
+import "hardhat/console.sol";
 
 abstract contract Directory is SelfCalled {
-    Filesystem public constant FS_CONTRACT = Filesystem(0xd0432A02D6f7725cb70a206C136CE5bc7AFDD833);
+    Filesystem public constant FS_CONTRACT = Filesystem(0x59E545B6980019f975234B728aE4d3668Ec21F8C);
+
+    constructor(bytes32 abiCID) {
+        console.log("Directory constructor");
+        FS_CONTRACT.setAbi(abiCID);
+        console.log("Directory constructor 2");
+    }
 
     function setDir(bytes32 dirId) public fromSelf {
         FS_CONTRACT.setRoot(dirId);

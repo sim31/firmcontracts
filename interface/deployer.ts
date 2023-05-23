@@ -42,7 +42,7 @@ export class Deployer {
   }
 
   getFactoryAddress() {
-    return factoryInfo.address;
+    return '0x' + factoryInfo.address;
   }
 
   async contractExists(address: AddressStr): Promise<boolean> {

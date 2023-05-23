@@ -5,7 +5,7 @@ import { deployImplLib, deployChain, createBlockAndExecute, createBlockAndFinali
 import type { ChainInfo } from "./FirmChainTests";
 import * as abi from "./FirmChainAbiTests";
 import { Wallet } from "ethers";
-import { FirmDirectory, FirmChainImpl } from "../typechain-types";
+import { FirmDirectory, FirmChainImpl, Filesystem } from "../typechain-types";
 import { ConfirmerOpValue, ExtendedBlock, ZeroId } from "../interface/types";
 import { createAddConfirmerOp, createBlockTemplate, createGenesisBlock, createMsg } from "../interface/firmchain";
 import { Overwrite } from "utility-types";
@@ -25,6 +25,7 @@ export async function deployFirmDirectory(
   confirmers: Wallet[] | ChainInfo[],
   threshold: number,
   implLib: FirmChainImpl,
+  fsContract: Filesystem,
 ): Promise<FirmDirectoryInfo> {
   const factory = await ethers.getContractFactory(
     "FirmDirectory",
@@ -38,8 +39,10 @@ export async function deployFirmDirectory(
   });
   const genesisBlock = await createGenesisBlock([], ZeroId, confOps, threshold);
 
-  const deployCall = factory.deploy(genesisBlock, confOps, threshold);
-  await expect(deployCall).to.not.be.reverted;
+  const abiCID = randomBytes32Hex();
+  const deployCall = factory.deploy(genesisBlock, confOps, threshold, abiCID);
+  await expect(deployCall).to.not.be.reverted
+    
   const chain = await deployCall;
   const genesisBl: ExtendedBlock = {
     ...genesisBlock,
@@ -74,7 +77,7 @@ async function deploy2ndOrderFirmDir() {
     chain1,
     chain2,
     chain3,
-  ], 2, implLib);
+  ], 2, implLib, fsContract);
 
   return {
     chain1, chain2, chain3,
@@ -157,7 +160,7 @@ describe("FirmDirectory", function() {
       await expect(newOrd2Chain.chain.execute(newOrd2Chain.lastFinalized))
         .to.emit(newOrd2Chain.chain, 'ExternalCall')
         .and.to.emit(fsContract, 'SetRoot')
-        .withArgs(newOrd2Chain.chain.address, dirId);
+          .withArgs(newOrd2Chain.chain.address, dirId);
     });
   })
 });
