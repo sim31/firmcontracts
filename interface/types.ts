@@ -53,7 +53,6 @@ export type ConfirmerOp = ConfirmerOpStruct;
 export type BreakoutResults = EdenPlusFractal.BreakoutResultsStruct;
 export type BlockBody = {
   confirmerSetId: PromiseOrValue<BytesLike>;
-  mirror: PromiseOrValue<BytesLike>;
   msgs: MessageStruct[];
 }
 

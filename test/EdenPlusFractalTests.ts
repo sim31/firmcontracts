@@ -49,7 +49,7 @@ export async function deployEF(
   const confOps = confAccounts.map((account) => {
     return createAddConfirmerOp(account.addr, 1);
   })
-  const genesisBlock = await createGenesisBlock([], ZeroId, confOps, threshold);
+  const genesisBlock = await createGenesisBlock([], confOps, threshold);
 
   const abiCID = randomBytes32Hex();
   const deployCall = factory.deploy(genesisBlock, confAccounts, threshold, name, symbol, abiCID);

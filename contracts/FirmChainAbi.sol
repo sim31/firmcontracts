@@ -38,10 +38,6 @@ struct Message {
 struct Block {
     BlockHeader header;
     bytes32 confirmerSetId;
-    // IPFS version of a chain
-    bytes32 mirror;
-    // TODO: Function to set mirror contract
-    // address mirrorContract;
     Message[] msgs;
 }
 
@@ -198,7 +194,7 @@ library FirmChainAbi {
     }
 
     function encodeBlockBody(Block calldata bl) public pure returns(bytes memory) {
-        return abi.encode(bl.confirmerSetId, bl.mirror, bl.msgs);
+        return abi.encode(bl.confirmerSetId, bl.msgs);
     }
 
     function getBlockBodyId(Block calldata bl) public pure returns (bytes32) {

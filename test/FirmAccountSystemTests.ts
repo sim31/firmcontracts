@@ -37,7 +37,7 @@ export async function deployFirmAccountSystem(
   const confOps: ConfirmerOpValue[] = confirmers.map((conf) => {
     return createAddConfirmerOp(conf, 1);
   });
-  const genesisBlock = await createGenesisBlock([], ZeroId, confOps, threshold);
+  const genesisBlock = await createGenesisBlock([], confOps, threshold);
 
   const deployCall = factory.deploy(genesisBlock, confOps, threshold, name);
   await expect(deployCall).to.not.be.reverted;

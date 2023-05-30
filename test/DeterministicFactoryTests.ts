@@ -63,7 +63,7 @@ export async function detDeployFirmChain() {
     createAddConfirmerOp(wallets[0]!, 1),
     createAddConfirmerOp(wallets[1]!, 1),
   ]
-  const genesisBlock = await createGenesisBlock([], ZeroId, confOps, 1);
+  const genesisBlock = await createGenesisBlock([], confOps, 1);
 
   const bytecode = factory.getDeployTransaction(genesisBlock, confOps, 1).data ?? "0x00";
 

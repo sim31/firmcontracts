@@ -109,7 +109,6 @@ export function updatedConfirmerSet(
 export async function createUnsignedBlock(
   prevBlock: ExtendedBlock,
   messages: Message[],
-  mirror: BytesLike = ZeroId,
   confirmerOps?: ConfirmerOpValue[],
   newThreshold?: number,
   ignoreConfirmerSetFail?: boolean,
@@ -134,7 +133,6 @@ export async function createUnsignedBlock(
   const body: BlockBody = {
     confirmerSetId: await getConfirmerSetId(confSet.confirmers, confSet.threshold),
     msgs: messages,
-    mirror,
   };
 
   let newHeader: BlockHeader = {
@@ -161,12 +159,11 @@ export async function createBlock(
   prevBlock: ExtendedBlock,
   messages: Message[],
   signers: Wallet[],
-  mirror: BytesLike = ZeroId,
   confirmerOps?: ConfirmerOpValue[],
   newThreshold?: number,
   ignoreConfirmerSetFail?: boolean,
 ): Promise<ExtendedBlock> {
-  const block = await createUnsignedBlock(prevBlock, messages, mirror, confirmerOps, newThreshold, ignoreConfirmerSetFail);
+  const block = await createUnsignedBlock(prevBlock, messages,  confirmerOps, newThreshold, ignoreConfirmerSetFail);
   const sigs = await batchSign(signers, block.header);
   block.signers = signers;
   block.signatures = sigs;
@@ -189,7 +186,6 @@ export async function signBlock(
 
 export async function createGenesisBlock(
   messages: Message[],
-  mirror: BytesLike = ZeroId,
   confirmerOps?: ConfirmerOpValue[],
   newThreshold?: number,
 ): Promise<GenesisBlock> {
@@ -198,7 +194,6 @@ export async function createGenesisBlock(
   const blockBody: BlockBody = {
     confirmerSetId: await getConfirmerSetId(confSet.confirmers, confSet.threshold),
     msgs: messages,
-    mirror,
   };
 
   let newHeader: BlockHeader = {
@@ -233,7 +228,6 @@ export async function createUnsignedBlockVal(
   prevBlockVal: OptExtendedBlockValue,
   contract: IFirmChain,
   messages: Message[],
-  mirror: BytesLike = ZeroId,
   confirmerOps?: ConfirmerOpValue[],
   newThreshold?: number,
   ignoreConfirmerSetFail?: boolean,
@@ -250,7 +244,7 @@ export async function createUnsignedBlockVal(
 
   const block = await createUnsignedBlock(
     prevBlock,
-    messages, mirror, confirmerOps, newThreshold,
+    messages, confirmerOps, newThreshold,
     ignoreConfirmerSetFail
   );
 

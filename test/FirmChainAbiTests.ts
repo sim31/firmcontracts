@@ -154,7 +154,6 @@ describe("FirmChainAbi", function () {
 
     const body: BlockBody = {
       confirmerSetId: randomBytes32(),
-      mirror: randomBytes32(),
       msgs,
     };
 
@@ -185,7 +184,6 @@ describe("FirmChainAbi", function () {
 
     const body: BlockBody = {
       confirmerSetId: randomBytes32(),
-      mirror: randomBytes32(),
       msgs,
     };
 
@@ -220,7 +218,6 @@ describe("FirmChainAbi", function () {
 
     const body: BlockBody = {
       confirmerSetId: randomBytes32(),
-      mirror: randomBytes32(),
       msgs,
     };
 
@@ -255,7 +252,6 @@ describe("FirmChainAbi", function () {
 
     const body: BlockBody = {
       confirmerSetId: randomBytes32(),
-      mirror: randomBytes32(),
       msgs,
     };
 

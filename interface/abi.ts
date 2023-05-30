@@ -11,9 +11,9 @@ export function normalizeHexStr(str: string) {
 export function encodeBlockBody(body: BlockBody): BytesLike {
   const coder = utils.defaultAbiCoder;
   return coder.encode([
-    "bytes32", "bytes32",
+    "bytes32",
     "tuple(address addr, bytes cdata)[]",
-  ], [body.confirmerSetId, body.mirror, body.msgs]);
+  ], [body.confirmerSetId, body.msgs]);
 }
 
 export function getBlockBodyId(body: BlockBody): string;
