@@ -14,11 +14,11 @@ abstract contract Directory is SelfCalled {
         console.log("Directory constructor 2");
     }
 
-    function setDir(bytes32 dirId) public fromSelf {
+    function setDir(bytes32 dirId) public virtual fromSelf {
         FS_CONTRACT.setRoot(dirId);
     }
 
-    function getDir() public view returns (bytes32) {
+    function getDir() public view virtual returns (bytes32) {
         return FS_CONTRACT.getRoot(address(this));
     }
 }

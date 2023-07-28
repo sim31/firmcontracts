@@ -49,11 +49,11 @@ contract EdenPlusFractal is Respect, Directory {
     }
 
     // Will fail if a delegate is not set
-    function getDelegate(uint8 weekIndex, uint8 roomIndex) public view returns (AccountId) {
+    function getDelegate(uint8 weekIndex, uint8 roomIndex) public view virtual returns (AccountId) {
         return _delegates[weekIndex][roomIndex];
     }
 
-    function getDelegates(uint8 weekIndex) public view returns (AccountId[] memory) {
+    function getDelegates(uint8 weekIndex) public view virtual returns (AccountId[] memory) {
         return _delegates[weekIndex];
     }
 

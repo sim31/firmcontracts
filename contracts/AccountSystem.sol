@@ -16,11 +16,11 @@ abstract contract AccountSystem {
         _accounts.construct();
     }
 
-    function accounts() public view returns (Account[] memory) {
+    function accounts() public view virtual returns (Account[] memory) {
         return _accounts.accounts;
     }
 
-    function getAccount(AccountId id) public view returns (Account memory) {
+    function getAccount(AccountId id) public view virtual returns (Account memory) {
         return _accounts.accounts[AccountId.unwrap(id)];
     }
 
@@ -28,11 +28,11 @@ abstract contract AccountSystem {
         return _accounts.accounts[AccountId.unwrap(id)];
     }
 
-    function byAddress(address addr) public view returns (AccountId) {
+    function byAddress(address addr) public view virtual returns (AccountId) {
         return _accounts.byAddress[addr];
     }
 
-    function accountExists(AccountId id) public view returns (bool) {
+    function accountExists(AccountId id) public view virtual returns (bool) {
         return _accounts.accountExists(id);
     }
 
@@ -40,11 +40,11 @@ abstract contract AccountSystem {
         return AccountSystemImpl.accountNotNull(account);
     }
 
-    function accountNotNullMem(Account memory account) public pure returns (bool) {
+    function accountNotNullMem(Account memory account) public pure virtual returns (bool) {
         return AccountSystemImpl.accountNotNullMem(account);
     }
 
-    function accountNotNullCdata(Account calldata account) public pure returns (bool) {
+    function accountNotNullCdata(Account calldata account) public pure virtual returns (bool) {
         return AccountSystemImpl.accountNotNullCdata(account);
     }
     
@@ -52,11 +52,11 @@ abstract contract AccountSystem {
         return AccountSystemImpl.accountHasAddr(account);
     }
 
-    function accountHasAddrMem(Account memory account) public pure returns (bool) {
+    function accountHasAddrMem(Account memory account) public pure virtual returns (bool) {
         return AccountSystemImpl.accountHasAddrMem(account);
     }
 
-    function accountHasAddrCdata(Account memory account) public pure returns (bool) {
+    function accountHasAddrCdata(Account memory account) public pure virtual returns (bool) {
         return AccountSystemImpl.accountHasAddrCdata(account);
     }
 
