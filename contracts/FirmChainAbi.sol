@@ -41,6 +41,12 @@ struct Block {
     Message[] msgs;
 }
 
+struct SignedBlock {
+    Block bl;
+    address[] signers;
+    Signature[] sigs;
+}
+
 library FirmChainAbi {
     function encode(BlockHeader calldata header) public pure returns (bytes memory) {
         return abi.encodePacked(

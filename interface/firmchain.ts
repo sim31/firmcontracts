@@ -6,6 +6,7 @@ import {
 import { Wallet, BaseContract, BytesLike } from 'ethers';
 import { normalizeHexStr, getBlockBodyId, getBlockId, sign, getConfirmerSetId, decodeConfirmer, getCurrentTimestamp, randomBytes32, batchSign, } from './abi';
 import { FirmChain, FirmChain__factory, IFirmChain } from '../typechain-types';
+import { SignedBlockStruct } from '../typechain-types/contracts/FirmChain.js';
 
 export function createAddConfirmerOps(confs: Confirmer[]): ConfirmerOp[] {
   return confs.map(conf => { return {opId:  ConfirmerOpId.Add, conf} });
@@ -151,6 +152,22 @@ export async function createUnsignedBlock(
       blockId: getBlockId(newHeader),
     },
   };
+}
+
+export function toSignedBlock(bl: ExtendedBlock): SignedBlockStruct {
+  return {
+    bl: {
+      header: bl.header,
+      confirmerSetId: bl.confirmerSetId,
+      msgs: bl.msgs,
+    },
+    sigs: bl.signatures,
+    signers: bl.signers.map(w => w.address)
+  }
+}
+
+export function toSignedBlocks(bls: ExtendedBlock[]): SignedBlockStruct[] {
+  return bls.map(b => toSignedBlock(b));
 }
 
 

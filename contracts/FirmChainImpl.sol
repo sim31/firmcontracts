@@ -116,8 +116,8 @@ library FirmChainImpl {
         address signatory,
         Signature calldata sig
     ) external returns (bool) {
-        require(header.verifyBlockSig(sig, signatory), "Invalid signature");
-        return _confirm(chain, header, signatory);
+        return _extConfirm(chain, header, signatory, sig);
+        
     }
 
     function finalize(FirmChain storage chain, BlockHeader calldata header) external notFromSelf {
@@ -126,14 +126,22 @@ library FirmChainImpl {
     }
 
     function finalizeAndExecute(FirmChain storage chain, Block calldata bl) external notFromSelf {
-        bytes32 bId = bl.header.getBlockId();
-        _finalize(chain, bl.header, bId);
-        _executeNext(chain, bl, bId);
+        _finalizeAndExecute(chain, bl);
     }
 
     function execute(FirmChain storage chain, Block calldata bl) external notFromSelf {
         bytes32 bId = bl.header.getBlockId();
         _executeNext(chain, bl, bId);
+    }
+
+    function sync(FirmChain storage chain, SignedBlock[] calldata blocks) external notFromSelf {
+        for (uint i = 0; i < blocks.length; i++) {
+            SignedBlock calldata bl = blocks[i];
+            for (uint s = 0; s < bl.sigs.length; s++) {
+                _extConfirm(chain, bl.bl.header, bl.signers[s], bl.sigs[s]);
+            }
+            _finalizeAndExecute(chain, bl.bl);
+        }
     }
 
     function updateConfirmerSet(
@@ -165,6 +173,22 @@ library FirmChainImpl {
         chain._confirmerSet.setConfirmerThreshold(threshold);
 
         chain._confirmerSetId = chain._confirmerSet.getConfirmerSetId();
+    }
+
+    function _finalizeAndExecute(FirmChain storage chain, Block calldata bl) private {
+        bytes32 bId = bl.header.getBlockId();
+        _finalize(chain, bl.header, bId);
+        _executeNext(chain, bl, bId);
+    }
+
+    function _extConfirm(
+        FirmChain storage chain,
+        BlockHeader calldata header,
+        address signatory,
+        Signature calldata sig
+    ) private returns (bool) {
+        require(header.verifyBlockSig(sig, signatory), "Invalid signature");
+        return _confirm(chain, header, signatory);
     }
 
     function _confirm(

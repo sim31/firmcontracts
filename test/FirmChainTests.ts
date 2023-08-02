@@ -8,7 +8,7 @@ import { Block, BlockHeader, Message, ConfirmerOp, ExtendedBlock, isBlock, ZeroI
 import { batchSign, decodeConfirmer, getBlockBodyId, getBlockId, getConfirmerSetId, normalizeHexStr, randomBytes32, randomBytes32Hex, sign } from "../interface/abi";
 import {
   createAddConfirmerOp, createAddConfirmerOps, createRemoveConfirmerOp,
-  createBlock, createMsg, createGenesisBlock, createBlockTemplate, updatedConfirmerSet, createUnsignedBlock, signBlock,
+  createBlock, createMsg, createGenesisBlock, createBlockTemplate, updatedConfirmerSet, createUnsignedBlock, signBlock, toSignedBlocks,
 } from "../interface/firmchain";
 import { FirmChain, FirmChainImpl, IFirmChain } from "../typechain-types";
 import { BlockHeaderStruct } from "../typechain-types/contracts/FirmChainAbi";
@@ -1300,6 +1300,38 @@ describe("FirmChain", function () {
         expect(await chain.isFinalized(blockId)).to.be.false;
     });
 
+  });
+
+  describe("sync", async function() {
+    it("Should finalize and execute multiple blocks in a single tx", async function () {
+      const ch = await loadFixture(deployFirmChainNTT);
+      const { ntt, genesisBl, wallets, signers, headBlock } = ch;
+
+      expect(await ntt.balanceOf(signers[0]!.address)).to.equal(0);
+
+      const newBlock = await createBlock(
+        headBlock, [], wallets
+      );
+
+      const newBlock2 = await createBlock(
+        newBlock,
+        [createMsg(ntt, 'mint', [signers[0]!.address, 2])],
+        wallets
+      );
+
+      const newBlock3 = await createBlock(
+        newBlock2,
+        [createMsg(ntt, 'mint', [signers[0]!.address, 2])],
+        wallets
+      );
+
+      const signedBlocks = toSignedBlocks([
+        newBlock, newBlock2, newBlock3
+      ]);
+      await expect(ch.chain.sync(signedBlocks)).to.not.be.reverted;
+
+      expect(await ntt.balanceOf(signers[0]!.address)).to.equal(4);
+    });
   });
 })
 

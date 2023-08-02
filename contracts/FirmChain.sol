@@ -47,8 +47,13 @@ contract FirmChain is IFirmChain, SelfCalled {
     function finalizeAndExecute(Block calldata bl) external {
         _impl.finalizeAndExecute(bl);
     }
+
     function execute(Block calldata bl) external {
         _impl.execute(bl);
+    }
+
+    function sync(SignedBlock[] calldata blocks) external {
+        _impl.sync(blocks);
     }
 
     function updateConfirmerSet(
