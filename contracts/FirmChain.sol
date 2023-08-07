@@ -13,6 +13,8 @@ contract FirmChain is IFirmChain, SelfCalled {
     event ExternalCall(bytes retValue);
     event ExternalCallFail(bytes retValue);
     event ContractDoesNotExist(address addr);
+    event BlockProposed(Block block);
+    event BlockConfirmation(bytes32 blockId, address confirmer);
 
     using FirmChainImpl for FirmChainImpl.FirmChain;
 
@@ -54,6 +56,10 @@ contract FirmChain is IFirmChain, SelfCalled {
 
     function sync(SignedBlock[] calldata blocks) external {
         _impl.sync(blocks);
+    }
+
+    function propose(Block calldata bl) public virtual {
+        _impl.propose(bl);
     }
 
     function updateConfirmerSet(

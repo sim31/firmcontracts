@@ -31,6 +31,10 @@ library FirmChainImpl {
     event ExternalCall(bytes retValue);
     event ExternalCallFail(bytes retValue);
     event ContractDoesNotExist(address addr);
+    event BlockProposed(Block block);
+    event BlockConfirmation(bytes32 blockId, address confirmer);
+    // event BlockFinalized(bytes32 blockId);
+    // event BlockExecuted(bytes32 blockId);
 
     using FirmChainAbi for ConfirmerSet;
     using FirmChainAbi for Block;
@@ -144,6 +148,10 @@ library FirmChainImpl {
         }
     }
 
+    function propose(FirmChain storage, Block calldata bl) external {
+        emit BlockProposed(bl);
+    }
+
     function updateConfirmerSet(
         FirmChain storage chain,
         ConfirmerOp[] calldata ops,
@@ -230,6 +238,7 @@ library FirmChainImpl {
         if (chain._confirmerStatus[confirmerAddr] != ConfirmerStatus.FAULTY) {
             chain._backlinks[packedLink(confirmerAddr, bId)] = prevId;
             chain._forwardLinks[packedLink(confirmerAddr, prevId)] = bId;
+            emit BlockConfirmation(bId, confirmerAddr);
             return true;
         } else {
             return false;
