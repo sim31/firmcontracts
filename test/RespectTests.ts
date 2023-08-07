@@ -79,18 +79,22 @@ export async function deployRespectFixt() {
   const accounts = [
     {
       addr: ZeroAddr,
+      name: 'acc1',
       metadataId: randomBytes32Hex(),
     },
     {
       addr: wallets[1]!.address,
+      name: 'acc2',
       metadataId: randomBytes32Hex(),
     },
     {
       addr: wallets[2]!.address,
+      name: 'acc3',
       metadataId: randomBytes32Hex(),
     },
     {
       addr: wallets[3]!.address,
+      name: 'acc4',
       metadataId: randomBytes32Hex(),
     }
   ];

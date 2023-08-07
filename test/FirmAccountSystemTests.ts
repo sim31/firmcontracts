@@ -105,18 +105,22 @@ async function deployWithAccounts() {
   const accounts = [
     {
       addr: ZeroAddr,
+      name: 'acc1',
       metadataId: randomBytes32Hex(),
     },
     {
       addr: fixtVars.wallets[1]!.address,
+      name: 'acc2',
       metadataId: randomBytes32Hex(),
     },
     {
       addr: fixtVars.wallets[2]!.address,
+      name: 'acc3',
       metadataId: randomBytes32Hex(),
     },
     {
       addr: fixtVars.wallets[3]!.address,
+      name: 'acc4',
       metadataId: randomBytes32Hex(),
     }
   ];
@@ -171,7 +175,7 @@ describe("FirmAccountSystem", function() {
       const { ord2Chain, wallets } = await loadFixture(deploy2ndOrderFirmAccs);
 
       await expect(ord2Chain.chain.createAccount(
-        { addr: wallets[0]!.address, metadataId: ZeroId }
+        { addr: wallets[0]!.address, name: 'accounta', metadataId: ZeroId }
       )).to.be.revertedWith("Can only be called by self");
     });
 
@@ -185,7 +189,7 @@ describe("FirmAccountSystem", function() {
           createMsg(
             ord2Chain.chain,
             'createAccount',
-            [{ addr: ZeroAddr, metadataId }]),
+            [{ addr: ZeroAddr, name: 'accounta', metadataId }]),
         ],
         ord2Chain.confirmers,
       );
@@ -210,7 +214,7 @@ describe("FirmAccountSystem", function() {
     it("Should create an account with an address when authorized by self", async function() {
       const { ord2Chain, wallets } = await loadFixture(deploy2ndOrderFirmAccs);
 
-      const account = { addr: wallets[0]!.address, metadataId: randomBytes32Hex() };
+      const account = { addr: wallets[0]!.address, name: 'acca', metadataId: randomBytes32Hex() };
       const newOrd2Chain = await createBlockAndFinalize(
         ord2Chain,
         [
@@ -310,7 +314,7 @@ describe("FirmAccountSystem", function() {
     it("Should not allow updating account id 0", async function() {
       const { ord2Chain, accounts, newOrd2Chain } = await loadFixture(deployWithAccounts);
 
-      const account = { addr: ZeroAddr, metadataId: randomBytes32Hex() };
+      const account = { addr: ZeroAddr, name: 'acca', metadataId: randomBytes32Hex() };
       const newOrd2Chain2 = await createBlockAndFinalize(
         newOrd2Chain,
         [createMsg(ord2Chain.chain, 'updateAccount', [0, account])],
@@ -324,7 +328,7 @@ describe("FirmAccountSystem", function() {
     it("Should not allow external actors to update an account", async function() {
       const { ord2Chain, accounts, newOrd2Chain } = await loadFixture(deployWithAccounts);
 
-      const account = { addr: ZeroAddr, metadataId: randomBytes32Hex() };
+      const account = { addr: ZeroAddr, name: 'accb', metadataId: randomBytes32Hex() };
 
       await expect(ord2Chain.chain.updateAccount(accounts[0]!.id, account))
         .to.be.revertedWith("Can only be called by self");

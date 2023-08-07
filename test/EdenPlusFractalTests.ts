@@ -41,9 +41,9 @@ export async function deployEF(
 
   const confAccounts = confirmers.map((conf) => {
     if ('address' in conf) {
-      return { addr: conf.address, metadataId: ZeroId };
+      return { addr: conf.address, name: 'acca', metadataId: ZeroId };
     } else {
-      return { addr: conf.chain.address, metadataId: ZeroId };
+      return { addr: conf.chain.address, name: 'accb', metadataId: ZeroId };
     }
   });
   const confOps = confAccounts.map((account) => {
@@ -97,46 +97,57 @@ export async function deployEFFixt() {
   const accounts = [
     {
       addr: ZeroAddr,
+      name: 'acc1',
       metadataId: randomBytes32Hex(),
     },
     {
       addr: wallets[1]!.address,
+      name: 'acc2',
       metadataId: randomBytes32Hex(),
     },
     {
       addr: wallets[2]!.address,
+      name: 'acc3',
       metadataId: randomBytes32Hex(),
     },
     {
       addr: wallets[3]!.address,
+      name: 'acc4',
       metadataId: randomBytes32Hex(),
     },
     {
       addr: wallets[4]!.address,
+      name: 'acc5',
       metadataId: randomBytes32Hex(),
     },
     {
       addr: wallets[5]!.address,
+      name: 'acc6',
       metadataId: randomBytes32Hex(),
     },
     {
       addr: wallets[6]!.address,
+      name: 'acc7',
       metadataId: randomBytes32Hex(),
     },
     {
       addr: ZeroAddr,
+      name: 'acc8',
       metadataId: randomBytes32Hex(),
     },
     {
       addr: wallets[7]!.address,
+      name: 'acc9',
       metadataId: randomBytes32Hex(),
     },
     {
       addr: wallets[8]!.address,
+      name: 'acc10',
       metadataId: randomBytes32Hex(),
     },
     {
       addr: wallets[9]!.address,
+      name: 'acc11',
       metadataId: randomBytes32Hex(),
     }
   ];

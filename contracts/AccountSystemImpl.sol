@@ -5,6 +5,7 @@ import "hardhat/console.sol";
 
 struct Account {
     address addr;
+    string name;
     bytes32 metadataId;
 }
 
@@ -27,7 +28,7 @@ library AccountSystemImpl {
     event AccountRemoved(AccountId id);
 
     function construct(AccountSystemState storage self) external {
-        self.accounts.push(Account({ addr: NULL_ACCOUNT, metadataId: 0 }));
+        self.accounts.push(Account({ addr: NULL_ACCOUNT, name: "", metadataId: 0 }));
     } 
 
     function accountExists(
@@ -74,7 +75,7 @@ library AccountSystemImpl {
             );
             self.accounts.push(account);
         } else {
-            self.accounts.push(Account(RESERVED_ACCOUNT, account.metadataId));
+            self.accounts.push(Account(RESERVED_ACCOUNT, account.name, account.metadataId));
         }
 
         AccountId id = AccountId.wrap(uint64(self.accounts.length - 1));
@@ -130,7 +131,7 @@ library AccountSystemImpl {
             }
         }
         if (newAccount.addr == NULL_ACCOUNT) {
-            Account memory acc = Account(RESERVED_ACCOUNT, newAccount.metadataId);
+            Account memory acc = Account(RESERVED_ACCOUNT, newAccount.name, newAccount.metadataId);
             self.accounts[AccountId.unwrap(id)] = acc;
             emit AccountUpdated(id, acc);
 
