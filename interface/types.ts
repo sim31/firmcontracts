@@ -157,6 +157,9 @@ export type GenesisBlockValue = OptExtendedBlockValue;
 //     if (typeof element === 'object' && element !== null)    
 //   }
 // }
+// TODO: What's the point of this?
+// If promisedStruct does not contain promises, this function does not achieve
+// anything. If it does, then I don't think it works: promises are processes as objects
 export async function toValue<T extends {}>(
   promisedStruct: T,
 ): Promise<Unpromised<T>> {

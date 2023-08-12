@@ -15,6 +15,9 @@ contract FirmChain is IFirmChain, SelfCalled {
     event ContractDoesNotExist(address addr);
     event BlockProposed(Block block);
     event BlockConfirmation(bytes32 blockId, address confirmer);
+    event BlockFinalized(bytes32 blockId);
+    event BlockExecuted(bytes32 blockId);
+    event Construction();
 
     using FirmChainImpl for FirmChainImpl.FirmChain;
 

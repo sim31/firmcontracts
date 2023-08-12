@@ -33,8 +33,9 @@ library FirmChainImpl {
     event ContractDoesNotExist(address addr);
     event BlockProposed(Block block);
     event BlockConfirmation(bytes32 blockId, address confirmer);
-    // event BlockFinalized(bytes32 blockId);
-    // event BlockExecuted(bytes32 blockId);
+    event BlockFinalized(bytes32 blockId);
+    event BlockExecuted(bytes32 blockId);
+    event Construction();
 
     using FirmChainAbi for ConfirmerSet;
     using FirmChainAbi for Block;
@@ -99,6 +100,8 @@ library FirmChainImpl {
 
         chain._backlinks[packedLink(address(this), bId)] = "1";
         chain._head = bId;
+
+        emit Construction();
     }
 
     // This must be called from contract (account with code set).
@@ -274,6 +277,8 @@ library FirmChainImpl {
 
         // Mark this block as confirmed by `this` (means block is finalized)
         require(_confirm(chain, header, address(this)));
+
+        emit BlockFinalized(bId);
     }
 
 
@@ -329,6 +334,8 @@ library FirmChainImpl {
         );
 
         chain._head = bId;
+
+        emit BlockExecuted(bId);
     }
 
     function proveFault(

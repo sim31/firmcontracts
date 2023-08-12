@@ -265,7 +265,8 @@ export async function createUnsignedBlockVal(
     ignoreConfirmerSetFail
   );
 
-  const values = await toValue(block);
+  // We know that createUnsignedBlock does not store any values as promises
+  const values = block as Unpromised<UnsignedBlock>;
   return {
     ...values,
     contract: values.contract?.address,
