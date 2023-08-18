@@ -40,10 +40,4 @@ contract XEdenPlusFractal is EdenPlusFractal {
         }
         _;
     }
-
-    /// OVERRIDEN METHODS (adding 'isHere' modifier) ///
-    function propose(Block calldata bl) public override isHere {
-      super.propose(bl);
-    }
-
 }

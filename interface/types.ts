@@ -146,6 +146,14 @@ export type ExtendedBlockValue =
 export type UnsignedBlockValue = Optional<ExtendedBlockValue, 'signers'>;
 export type NoContractBlockValue = Optional<ExtendedBlockValue, 'contract'>;
 export type OptExtendedBlockValue = Optional<ExtendedBlockValue, 'contract' | 'signers' | 'signatures'>;
+// export type OptExtBlockHeaderValue = Overwrite<
+//   OptExtendedBlockValue,
+//   { state: Optional<ChainState, 'confirmerSet'> }
+// >
+
+// export function isFullOptBlock(bl: OptExtBlockHeaderValue | OptExtendedBlockValue | undefined): bl is OptExtendedBlockValue {
+//   return bl !== undefined && bl.state !== undefined;
+// }
 export type GenesisBlockValue = OptExtendedBlockValue;
 
 // export async function arrayToValue<T extends Array<infer V>>(promisedArr: T): Promise<Unpromised<T>> {
