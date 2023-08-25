@@ -37,7 +37,7 @@ library FirmChainImpl {
         bytes32 indexed blockId,
         address indexed confirmer
     );
-    event BlockFinalized(bytes32 indexed blockId);
+    event BlockFinalized(bytes32 indexed prevBlockId, bytes32 indexed blockId);
     event BlockExecuted(bytes32 indexed blockId);
     event Construction();
 
@@ -283,7 +283,7 @@ library FirmChainImpl {
         // Mark this block as confirmed by `this` (means block is finalized)
         require(_confirm(chain, header, address(this)));
 
-        emit BlockFinalized(bId);
+        emit BlockFinalized(prevId, bId);
     }
 
 

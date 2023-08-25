@@ -19,7 +19,7 @@ contract FirmChain is IFirmChain, SelfCalled {
         bytes32 indexed blockId,
         address indexed confirmer
     );
-    event BlockFinalized(bytes32 indexed blockId);
+    event BlockFinalized(bytes32 indexed prevBlockId, bytes32 indexed blockId);
     event BlockExecuted(bytes32 indexed blockId);
     event Construction();
 
