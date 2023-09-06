@@ -13,14 +13,18 @@ contract FirmChain is IFirmChain, SelfCalled {
     event ExternalCall(bytes retValue);
     event ExternalCallFail(bytes retValue);
     event ContractDoesNotExist(address addr);
-    event BlockProposed(bytes32 indexed prevBlockId);
+    event BlockProposed(bytes32 indexed prevBlockId, Block block);
     event BlockConfirmation(
-        bytes32 indexed prevBlockId,
         bytes32 indexed blockId,
         address indexed confirmer
     );
+    event ExtBlockConfirmation(
+        bytes32 indexed blockId,
+        address indexed confirmer,
+        Signature sig
+    );
     event BlockFinalized(bytes32 indexed prevBlockId, bytes32 indexed blockId);
-    event BlockExecuted(bytes32 indexed blockId);
+    event BlockExecuted(bytes32 indexed blockId, Block block);
     event Construction();
 
     using FirmChainImpl for FirmChainImpl.FirmChain;

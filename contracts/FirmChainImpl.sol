@@ -31,14 +31,18 @@ library FirmChainImpl {
     event ExternalCall(bytes retValue);
     event ExternalCallFail(bytes retValue);
     event ContractDoesNotExist(address addr);
-    event BlockProposed(bytes32 indexed prevBlockId);
+    event BlockProposed(bytes32 indexed prevBlockId, Block block);
     event BlockConfirmation(
-        bytes32 indexed prevBlockId,
         bytes32 indexed blockId,
         address indexed confirmer
     );
+    event ExtBlockConfirmation(
+        bytes32 indexed blockId,
+        address indexed confirmer,
+        Signature sig
+    );
     event BlockFinalized(bytes32 indexed prevBlockId, bytes32 indexed blockId);
-    event BlockExecuted(bytes32 indexed blockId);
+    event BlockExecuted(bytes32 indexed blockId, Block block);
     event Construction();
 
     using FirmChainAbi for ConfirmerSet;
@@ -116,7 +120,12 @@ library FirmChainImpl {
     // The fact that it is a contract does not protect from the same situation,
     // but a DAO can make sure that confirmer contracts are not dependent on any state that could cause trouble like this.
     function confirm(FirmChain storage chain, BlockHeader calldata header) external notFromSelf fromContract returns (bool) {
-        return _confirm(chain, header, msg.sender);
+        bytes32 bId = header.getBlockId();
+        bool success = _confirm(chain, header, msg.sender, bId);
+        if (success) {
+            emit BlockConfirmation(bId, msg.sender);
+        }
+        return success;
     }
 
     // sender can be anyone but check that header contains valid signature
@@ -128,7 +137,6 @@ library FirmChainImpl {
         Signature calldata sig
     ) external returns (bool) {
         return _extConfirm(chain, header, signatory, sig);
-        
     }
 
     function finalize(FirmChain storage chain, BlockHeader calldata header) external notFromSelf {
@@ -157,7 +165,7 @@ library FirmChainImpl {
 
     function propose(FirmChain storage, Block calldata bl) external {
         bytes32 prevId = bl.header.prevBlockId;
-        emit BlockProposed(prevId);
+        emit BlockProposed(prevId, bl);
     }
 
     function updateConfirmerSet(
@@ -204,16 +212,20 @@ library FirmChainImpl {
         Signature calldata sig
     ) private returns (bool) {
         require(header.verifyBlockSig(sig, signatory), "Invalid signature");
-        return _confirm(chain, header, signatory);
+        bytes32 bId = header.getBlockId();
+        bool success = _confirm(chain, header, signatory, bId);
+        if (success) {
+            emit ExtBlockConfirmation(bId, signatory, sig);
+        }
+        return success;
     }
 
     function _confirm(
         FirmChain storage chain,
         BlockHeader calldata header,
-        address confirmerAddr
+        address confirmerAddr,
+        bytes32 bId
     ) private nonFaulty(chain) goodTs(header.timestamp) returns (bool) {
-        bytes32 bId = header.getBlockId();
-
         // Check if id not already confirmed by the sender
         // Note: this is not necessarily a fault by a sender, it might be
         // an attempted replay of senders block.
@@ -246,7 +258,6 @@ library FirmChainImpl {
         if (chain._confirmerStatus[confirmerAddr] != ConfirmerStatus.FAULTY) {
             chain._backlinks[packedLink(confirmerAddr, bId)] = prevId;
             chain._forwardLinks[packedLink(confirmerAddr, prevId)] = bId;
-            emit BlockConfirmation(prevId, bId, confirmerAddr);
             return true;
         } else {
             return false;
@@ -281,9 +292,9 @@ library FirmChainImpl {
         );
 
         // Mark this block as confirmed by `this` (means block is finalized)
-        require(_confirm(chain, header, address(this)));
+        require(_confirm(chain, header, address(this), bId));
 
-        emit BlockFinalized(prevId, bId);
+        emit BlockFinalized(header.prevBlockId, bId);
     }
 
 
@@ -340,7 +351,7 @@ library FirmChainImpl {
 
         chain._head = bId;
 
-        emit BlockExecuted(bId);
+        emit BlockExecuted(bId, bl);
     }
 
     function proveFault(
